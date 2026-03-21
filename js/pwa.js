@@ -2,34 +2,32 @@ import toast from '../components/toast.js';
 
 let deferredPrompt = null;
 let refreshing = false;
+let waitingWorker = null;
+let swRegistration = null;
 
-function showUpdateToast(worker) {
-  toast.show({
-    message: 'Nueva versión disponible',
-    type: 'info',
-    duration: 0,
-    action: {
-      label: 'Actualizar',
-      handler: () => {
-        worker.postMessage({ type: 'SKIP_WAITING' });
-      }
-    }
-  });
-}
+const applyUpdate = (showNotification = false) => {
+  if (!waitingWorker) return;
+  if (showNotification) {
+    toast.show({ message: 'Actualizando...', type: 'info', duration: 1500 });
+  }
+  waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+  waitingWorker = null;
+};
 
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
 
   navigator.serviceWorker.register('./sw.js')
     .then(reg => {
-      console.log('SW registered:', reg.scope);
+      swRegistration = reg;
 
       // Check for updates on every page load
       reg.update();
 
-      // If a worker is already waiting from a previous visit, show prompt
+      // Already-waiting worker from previous session: apply immediately
       if (reg.waiting && navigator.serviceWorker.controller) {
-        showUpdateToast(reg.waiting);
+        waitingWorker = reg.waiting;
+        applyUpdate(false);
       }
 
       // Detect new service worker installing
@@ -38,9 +36,8 @@ export function registerServiceWorker() {
         if (!newWorker) return;
 
         newWorker.addEventListener('statechange', () => {
-          // New SW installed and waiting — notify user
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            showUpdateToast(newWorker);
+            waitingWorker = newWorker;
           }
         });
       });
@@ -55,6 +52,24 @@ export function registerServiceWorker() {
     refreshing = true;
     window.location.reload();
   });
+
+  // Auto-apply update on in-app navigation
+  window.addEventListener('hashchange', () => {
+    if (waitingWorker) applyUpdate(false);
+  });
+
+  // Check for updates + auto-apply when tab regains focus
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      if (swRegistration) swRegistration.update();
+      if (waitingWorker) applyUpdate(true);
+    }
+  });
+
+  // Periodic update checks every 60s
+  setInterval(() => {
+    if (swRegistration) swRegistration.update();
+  }, 60 * 1000);
 }
 
 export function setupInstallPrompt() {
