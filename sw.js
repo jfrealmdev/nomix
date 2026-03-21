@@ -1,8 +1,9 @@
-const CACHE_NAME = 'nomix-v7';
+const CACHE_NAME = 'nomix-v8';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './version.json',
   './css/tokens.css',
   './css/base.css',
   './css/components.css',
@@ -29,6 +30,9 @@ const STATIC_ASSETS = [
   './js/exchange-rate.js'
 ];
 
+// BroadcastChannel for instant client notification
+const updateChannel = new BroadcastChannel('nomix-updates');
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
@@ -39,7 +43,10 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    ).then(() => {
+      // Notify all clients that a new version is active
+      updateChannel.postMessage({ type: 'SW_ACTIVATED', cacheName: CACHE_NAME });
+    })
   );
   self.clients.claim();
 });
@@ -56,6 +63,14 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
+
+  // Always fetch version.json from network (never serve stale cached version)
+  if (url.pathname.endsWith('/version.json')) {
+    event.respondWith(
+      fetch(request).catch(() => caches.match(request))
+    );
+    return;
+  }
 
   // Network-first for same-origin requests (ensures fresh content)
   if (url.origin === self.location.origin) {
