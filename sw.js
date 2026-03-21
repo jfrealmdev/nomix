@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomix-v1';
+const CACHE_NAME = 'nomix-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -47,7 +47,34 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET') return;
 
-  // Cache-first for static assets
+  const url = new URL(request.url);
+
+  // Network-first for same-origin requests (ensures fresh content)
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => {
+          // Offline: fall back to cache
+          return caches.match(request).then((cached) => {
+            if (cached) return cached;
+            // Offline fallback for navigation
+            if (request.destination === 'document') {
+              return caches.match('/index.html');
+            }
+          });
+        })
+    );
+    return;
+  }
+
+  // Cache-first for external resources (CDN libs, fonts)
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
@@ -58,11 +85,6 @@ self.addEventListener('fetch', (event) => {
         }
         return response;
       });
-    }).catch(() => {
-      // Offline fallback
-      if (request.destination === 'document') {
-        return caches.match('/index.html');
-      }
     })
   );
 });
