@@ -12,7 +12,8 @@ const toast = {
 
     setTimeout(() => {
       el.classList.add('toast-exit');
-      el.addEventListener('animationend', () => el.remove());
+      el.addEventListener('animationend', () => el.remove(), { once: true });
+      setTimeout(() => el.remove(), 300);
     }, duration);
   }
 };

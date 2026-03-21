@@ -97,6 +97,7 @@ export default function renderTransactions(container) {
       chip.textContent = `${cat.icon} ${cat.name}`;
       chip.addEventListener('click', () => {
         categoryFilter = categoryFilter === cat.id ? null : cat.id;
+        filter = 'all';
         page = 1;
         render();
       });
@@ -209,14 +210,7 @@ export default function renderTransactions(container) {
       </div>
       <div class="form-group">
         <label class="form-label">Categoría</label>
-        <div class="category-grid" id="tx-category-grid">
-          ${categories.map(c => `
-            <button class="category-option" data-id="${c.id}">
-              <span class="category-option__icon">${c.icon}</span>
-              <span>${c.name}</span>
-            </button>
-          `).join('')}
-        </div>
+        <div class="category-grid" id="tx-category-grid"></div>
       </div>
       <div class="form-row">
         <div class="form-group" style="flex:1">
@@ -234,6 +228,30 @@ export default function renderTransactions(container) {
 
     // Toggle type
     let txType = 'expense';
+    let selectedCategory = null;
+
+    function renderCategoryGrid(type) {
+      const grid = form.querySelector('#tx-category-grid');
+      const cats = store.getCategories().filter(c =>
+        type === 'income' ? c.id === 'income' : c.id !== 'income'
+      );
+      grid.innerHTML = cats.map(c => `
+        <button class="category-option" data-id="${c.id}">
+          <span class="category-option__icon">${c.icon}</span>
+          <span>${c.name}</span>
+        </button>
+      `).join('');
+      grid.querySelectorAll('.category-option').forEach(opt => {
+        opt.addEventListener('click', () => {
+          grid.querySelectorAll('.category-option').forEach(o => o.classList.remove('selected'));
+          opt.classList.add('selected');
+          selectedCategory = opt.dataset.id;
+        });
+      });
+    }
+
+    renderCategoryGrid('expense');
+
     const toggleBtns = form.querySelectorAll('.toggle-group__btn');
     toggleBtns.forEach(btn => {
       btn.addEventListener('click', () => {
@@ -244,16 +262,8 @@ export default function renderTransactions(container) {
             b.classList.add(txType === 'income' ? 'active-income' : 'active-expense');
           }
         });
-      });
-    });
-
-    // Category select
-    let selectedCategory = null;
-    form.querySelectorAll('.category-option').forEach(opt => {
-      opt.addEventListener('click', () => {
-        form.querySelectorAll('.category-option').forEach(o => o.classList.remove('selected'));
-        opt.classList.add('selected');
-        selectedCategory = opt.dataset.id;
+        selectedCategory = null;
+        renderCategoryGrid(txType);
       });
     });
 
