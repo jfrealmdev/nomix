@@ -3,6 +3,7 @@ import { formatCurrency, getCategoryById } from '../utils.js';
 import modal from '../../components/modal.js';
 import toast from '../../components/toast.js';
 import router from '../router.js';
+import { canInstall, promptInstall } from '../pwa.js';
 
 export default function renderSettings(container) {
   const topBar = document.getElementById('top-bar');
@@ -190,6 +191,26 @@ export default function renderSettings(container) {
   });
   dataGroup.appendChild(clearItem);
   container.appendChild(dataGroup);
+
+  // App (Install)
+  if (canInstall()) {
+    const appGroup = document.createElement('div');
+    appGroup.className = 'settings-group';
+    appGroup.innerHTML = `<div class="settings-group__title">Aplicación</div>`;
+
+    const installItem = createSettingItem('📲', 'Instalar Nomix', '');
+    installItem.addEventListener('click', async () => {
+      const accepted = await promptInstall();
+      if (accepted) {
+        toast.show({ message: 'Nomix instalado correctamente', type: 'success' });
+        renderSettings(container);
+      } else {
+        toast.show({ message: 'Instalación cancelada', type: 'info' });
+      }
+    });
+    appGroup.appendChild(installItem);
+    container.appendChild(appGroup);
+  }
 
   // About
   const aboutGroup = document.createElement('div');
