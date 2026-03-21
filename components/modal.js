@@ -32,7 +32,7 @@ const modal = {
 
       const closeBtn = document.createElement('button');
       closeBtn.className = 'btn-icon';
-      closeBtn.setAttribute('aria-label', 'Cerrar');
+      closeBtn.setAttribute('aria-label', 'Close');
       closeBtn.innerHTML = '<i data-lucide="x"></i>';
       closeBtn.addEventListener('click', () => this.close());
       header.appendChild(closeBtn);

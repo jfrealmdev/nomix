@@ -23,7 +23,10 @@ function seed() {
   setKey('transactions', MOCK_TRANSACTIONS);
   setKey('budgets', MOCK_BUDGETS);
   setKey('settings', {
-    currency: 'GTQ',
+    currency: 'DOP',
+    secondaryCurrency: 'USD',
+    exchangeRate: 61,
+    language: 'es',
     name: 'Ana',
     theme: 'dark',
     notifications: true,
@@ -72,7 +75,7 @@ const store = {
   },
 
   getSettings() {
-    return getKey('settings') || { currency: 'GTQ', name: 'Ana', theme: 'dark', notifications: true };
+    return getKey('settings') || { currency: 'DOP', secondaryCurrency: 'USD', exchangeRate: 61, language: 'es', name: 'Ana', theme: 'dark', notifications: true };
   },
 
   updateSettings(partial) {

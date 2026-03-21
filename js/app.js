@@ -1,5 +1,6 @@
 import store from './store.js';
 import router from './router.js';
+import i18n from './i18n.js';
 import { initNav } from '../components/nav.js';
 import { registerServiceWorker, setupInstallPrompt } from './pwa.js';
 
@@ -13,6 +14,10 @@ import renderSettings from './views/settings.js';
 function init() {
   // Seed mock data on first run
   store.seed();
+
+  // Initialize i18n
+  const settings = store.getSettings();
+  i18n.init(settings.language || 'es');
 
   // Register routes
   router.on('/dashboard', renderDashboard);
@@ -33,6 +38,15 @@ function init() {
 
   // Re-render Lucide icons after route changes
   window.addEventListener('route:changed', () => {
+    requestAnimationFrame(() => {
+      if (window.lucide) window.lucide.createIcons();
+    });
+  });
+
+  // Re-render current view on language change
+  window.addEventListener('lang:changed', () => {
+    store.updateSettings({ language: i18n.getLang() });
+    router.reload();
     requestAnimationFrame(() => {
       if (window.lucide) window.lucide.createIcons();
     });

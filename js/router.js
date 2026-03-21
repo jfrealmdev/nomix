@@ -18,6 +18,15 @@ const router = {
     return currentPath;
   },
 
+  reload() {
+    const container = document.getElementById('view-container');
+    if (!container) return;
+    container.innerHTML = '';
+    const handler = routes[currentPath];
+    if (handler) handler(container);
+    window.dispatchEvent(new CustomEvent('route:changed', { detail: { path: currentPath } }));
+  },
+
   init() {
     const handleRoute = () => {
       const path = getPath();

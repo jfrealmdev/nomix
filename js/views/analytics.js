@@ -1,83 +1,116 @@
 import store from '../store.js';
+import i18n from '../i18n.js';
 import { formatCurrency, getMonthName } from '../utils.js';
 import { createBarChart, createLineChart, destroyAllCharts } from '../../components/chart-widget.js';
 
 export default function renderAnalytics(container) {
   const topBar = document.getElementById('top-bar');
-  topBar.innerHTML = `<div class="top-bar__greeting">Análisis</div>`;
-
-  let period = 'month'; // week | month | quarter | year
+  const settings = store.getSettings();
+  topBar.innerHTML = `
+    <div class="top-bar__brand">
+      <div class="top-bar__logo">N</div>
+      <span class="top-bar__name">Nomix</span>
+    </div>
+    <div class="top-bar__actions">
+      <button class="btn-icon" aria-label="Notifications"><i data-lucide="bell"></i></button>
+      <div class="top-bar__avatar">${settings.name.charAt(0)}</div>
+    </div>
+  `;
 
   function render() {
     container.innerHTML = '';
     destroyAllCharts();
 
-    // Period selector
-    const pills = document.createElement('div');
-    pills.className = 'tab-pills mb-6';
-    const periods = [
-      { id: 'week', label: 'Semana' },
-      { id: 'month', label: 'Mes' },
-      { id: 'quarter', label: '3 Meses' },
-      { id: 'year', label: 'Año' },
-    ];
-    periods.forEach(p => {
-      const btn = document.createElement('button');
-      btn.className = `tab-pill ${period === p.id ? 'active' : ''}`;
-      btn.textContent = p.label;
-      btn.addEventListener('click', () => {
-        period = p.id;
-        render();
-      });
-      pills.appendChild(btn);
-    });
-    container.appendChild(pills);
-
     const txs = store.getTransactions();
     const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-    // Get period range
-    let startDate;
-    switch (period) {
-      case 'week':
-        startDate = new Date(now); startDate.setDate(now.getDate() - 7); break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1); break;
-      case 'quarter':
-        startDate = new Date(now); startDate.setMonth(now.getMonth() - 3); break;
-      case 'year':
-        startDate = new Date(now.getFullYear(), 0, 1); break;
-    }
+    const monthTxs = txs.filter(t => new Date(t.date) >= monthStart);
+    const prevMonthTxs = txs.filter(t => { const d = new Date(t.date); return d >= prevMonthStart && d < monthStart; });
 
-    const periodTxs = txs.filter(t => new Date(t.date) >= startDate);
-    const income = periodTxs.filter(t => t.amount > 0);
-    const expenses = periodTxs.filter(t => t.amount < 0);
-    const totalIncome = income.reduce((s, t) => s + t.amount, 0);
-    const totalExpense = expenses.reduce((s, t) => s + Math.abs(t.amount), 0);
+    const monthIncome = monthTxs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    const monthExpense = monthTxs.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    const monthlySavings = monthIncome - monthExpense;
 
-    // 1. Income vs Expense Bar Chart
-    renderIncomeExpenseChart(periodTxs);
+    const prevIncome = prevMonthTxs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    const prevExpense = prevMonthTxs.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    const prevSavings = prevIncome - prevExpense;
 
-    // 2. Category Breakdown
-    renderCategoryBreakdown(expenses);
+    const savingsChange = prevSavings > 0 ? ((monthlySavings - prevSavings) / prevSavings * 100) : 0;
 
-    // 3. Spending Trend
-    renderSpendingTrend(expenses, startDate, now);
+    // 1. Monthly Savings Card
+    renderMonthlySavings(monthlySavings, savingsChange, prevSavings);
 
-    // 4. Top Merchants
-    renderTopMerchants(expenses);
+    // 2. Annual Savings Goal
+    renderAnnualGoal(monthlySavings);
 
-    // 5. Savings Rate
-    renderSavingsRate(totalIncome, totalExpense);
+    // 3. Cash Flow Chart (6 months)
+    renderCashFlowChart(txs, now);
 
-    // 6. AI Insight
-    renderInsightCard();
+    // 4. Category Breakdown
+    renderCategoryBreakdown(monthTxs);
+
+    // 5. AI Insight
+    renderAIInsight();
+
+    // 6. Create Report
+    renderCreateReport();
+
+    if (window.lucide) window.lucide.createIcons({ nodes: [container, topBar] });
   }
 
-  function renderIncomeExpenseChart(periodTxs) {
+  function renderMonthlySavings(savings, changePercent, prevAmount) {
     const card = document.createElement('div');
-    card.className = 'card mb-6';
-    card.innerHTML = '<h3 class="section-title mb-4">Ingresos vs Gastos</h3>';
+    card.className = 'card savings-card mb-4';
+
+    const isPositive = changePercent >= 0;
+    card.innerHTML = `
+      <div class="savings-card__label">${i18n.t('analytics.monthlySavings')}</div>
+      <div class="savings-card__amount">${formatCurrency(savings)}</div>
+      <div class="savings-card__change ${isPositive ? 'positive' : 'negative'}">
+        <i data-lucide="${isPositive ? 'trending-up' : 'trending-down'}" style="width:16px;height:16px"></i>
+        ${Math.abs(changePercent).toFixed(1)}%
+        <span class="savings-card__vs">${i18n.t('analytics.vsPrevMonth', { amount: formatCurrency(prevAmount) })}</span>
+      </div>
+    `;
+    container.appendChild(card);
+  }
+
+  function renderAnnualGoal(monthlySavings) {
+    const annualGoal = 500000; // DOP goal
+    const monthsElapsed = new Date().getMonth() + 1;
+    const projected = monthlySavings * 12;
+    const currentSaved = monthlySavings * monthsElapsed;
+    const pct = Math.min(100, (currentSaved / annualGoal * 100));
+
+    const card = document.createElement('div');
+    card.className = 'card mb-4';
+    card.innerHTML = `
+      <div class="goal-card__label">${i18n.t('analytics.annualGoal')}</div>
+      <div class="goal-card__row">
+        <span class="goal-card__pct">${pct.toFixed(0)}%</span>
+        <span class="goal-card__amounts">${formatCurrency(currentSaved)} / ${formatCurrency(annualGoal)}</span>
+      </div>
+      <div class="progress mb-3">
+        <div class="progress-bar" style="width:${pct}%;"></div>
+      </div>
+      <p class="goal-card__motivation">${i18n.t('analytics.goalMotivation', { months: '2' })}</p>
+    `;
+    container.appendChild(card);
+  }
+
+  function renderCashFlowChart(txs, now) {
+    const card = document.createElement('div');
+    card.className = 'card mb-4';
+    card.innerHTML = `
+      <h3 class="section-title">${i18n.t('analytics.cashFlow')}</h3>
+      <p style="font-size:12px;color:var(--color-text-muted);margin-bottom:var(--space-4);">${i18n.t('analytics.cashFlowSubtitle')}</p>
+      <div style="display:flex;gap:var(--space-4);margin-bottom:var(--space-4);">
+        <span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--color-accent);"></span> ${i18n.t('analytics.incomeLabel')}</span>
+        <span class="chart-legend-item"><span class="chart-legend-dot" style="background:var(--color-expense);"></span> ${i18n.t('analytics.expensesLabel')}</span>
+      </div>
+    `;
 
     const chartWrap = document.createElement('div');
     chartWrap.style.height = '240px';
@@ -87,191 +120,105 @@ export default function renderAnalytics(container) {
     card.appendChild(chartWrap);
     container.appendChild(card);
 
-    // Group by period
-    const groups = {};
-    periodTxs.forEach(tx => {
-      const d = new Date(tx.date);
-      let key;
-      if (period === 'week') {
-        const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-        key = days[d.getDay()];
-      } else if (period === 'month') {
-        key = `Sem ${Math.ceil(d.getDate() / 7)}`;
-      } else {
-        key = getMonthName(d.getMonth()).substring(0, 3);
-      }
-      if (!groups[key]) groups[key] = { income: 0, expenses: 0 };
-      if (tx.amount > 0) groups[key].income += tx.amount;
-      else groups[key].expenses += Math.abs(tx.amount);
-    });
+    // 6 months of data
+    const labels = [];
+    const incomeData = [];
+    const expenseData = [];
 
-    const labels = Object.keys(groups);
+    for (let i = 5; i >= 0; i--) {
+      const m = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const mEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+      const monthLabel = i18n.t(`months.upper.${m.getMonth()}`);
+      labels.push(monthLabel);
+
+      const mTxs = txs.filter(t => { const d = new Date(t.date); return d >= m && d <= mEnd; });
+      incomeData.push(mTxs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0));
+      expenseData.push(mTxs.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0));
+    }
+
     requestAnimationFrame(() => {
       createBarChart(canvas, {
         labels,
-        income: labels.map(l => groups[l].income),
-        expenses: labels.map(l => groups[l].expenses),
+        income: incomeData,
+        expenses: expenseData,
       });
     });
   }
 
-  function renderCategoryBreakdown(expenses) {
+  function renderCategoryBreakdown(monthTxs) {
+    const expenses = monthTxs.filter(t => t.amount < 0);
     const categories = store.getCategories().filter(c => c.id !== 'income');
     const catSpending = {};
-    expenses.forEach(tx => {
-      catSpending[tx.categoryId] = (catSpending[tx.categoryId] || 0) + Math.abs(tx.amount);
-    });
+    expenses.forEach(tx => { catSpending[tx.categoryId] = (catSpending[tx.categoryId] || 0) + Math.abs(tx.amount); });
+    const totalExpense = expenses.reduce((s, t) => s + Math.abs(t.amount), 0);
 
-    const sorted = categories
-      .map(c => ({ ...c, total: catSpending[c.id] || 0 }))
-      .filter(c => c.total > 0)
-      .sort((a, b) => b.total - a.total);
+    const sorted = categories.map(c => ({ ...c, total: catSpending[c.id] || 0 }))
+      .filter(c => c.total > 0).sort((a, b) => b.total - a.total).slice(0, 4);
 
     if (sorted.length === 0) return;
 
-    const maxVal = sorted[0].total;
-
-    const card = document.createElement('div');
-    card.className = 'card mb-6';
-    card.innerHTML = '<h3 class="section-title mb-4">Gastos por categoría</h3>';
-
-    sorted.forEach(cat => {
-      const pct = (cat.total / maxVal * 100).toFixed(0);
-      const row = document.createElement('div');
-      row.style.cssText = 'margin-bottom:var(--space-3);';
-      row.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);font-size:13px;">
-          <span>${cat.icon} ${cat.name}</span>
-          <span style="font-family:var(--font-mono);color:var(--color-text-muted);">${formatCurrency(cat.total)}</span>
-        </div>
-        <div class="progress">
-          <div class="progress-bar" style="width:${pct}%;background:${cat.color};"></div>
-        </div>
-      `;
-      card.appendChild(row);
-    });
-
-    container.appendChild(card);
-  }
-
-  function renderSpendingTrend(expenses, startDate, endDate) {
-    const card = document.createElement('div');
-    card.className = 'card mb-6';
-    card.innerHTML = '<h3 class="section-title mb-4">Tendencia de gastos</h3>';
-
-    const chartWrap = document.createElement('div');
-    chartWrap.style.height = '200px';
-    const canvas = document.createElement('canvas');
-    canvas.id = 'analytics-line';
-    chartWrap.appendChild(canvas);
-    card.appendChild(chartWrap);
-    container.appendChild(card);
-
-    // Group by day
-    const days = {};
-    const labels = [];
-    const d = new Date(startDate);
-    while (d <= endDate) {
-      const key = d.toISOString().split('T')[0];
-      days[key] = 0;
-      labels.push(`${d.getDate()}/${d.getMonth() + 1}`);
-      d.setDate(d.getDate() + 1);
-    }
-
-    expenses.forEach(tx => {
-      const key = new Date(tx.date).toISOString().split('T')[0];
-      if (days[key] !== undefined) days[key] += Math.abs(tx.amount);
-    });
-
-    const values = Object.values(days);
-    const avg = values.reduce((s, v) => s + v, 0) / values.length;
-    const averageValues = values.map(() => avg);
-
-    // Limit labels to ~15 for readability
-    const step = Math.max(1, Math.floor(labels.length / 15));
-    const filteredLabels = labels.map((l, i) => i % step === 0 ? l : '');
-
-    requestAnimationFrame(() => {
-      createLineChart(canvas, {
-        labels: filteredLabels,
-        values,
-        averageValues,
-        label: 'Gastos diarios',
-      });
-    });
-  }
-
-  function renderTopMerchants(expenses) {
-    const merchantTotals = {};
-    expenses.forEach(tx => {
-      merchantTotals[tx.merchant] = (merchantTotals[tx.merchant] || 0) + Math.abs(tx.amount);
-    });
-
-    const sorted = Object.entries(merchantTotals)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5);
-
-    if (sorted.length === 0) return;
-
-    const maxVal = sorted[0][1];
-
-    const card = document.createElement('div');
-    card.className = 'card mb-6';
-    card.innerHTML = '<h3 class="section-title mb-4">Comercios principales</h3>';
-
-    sorted.forEach(([name, total], i) => {
-      const pct = (total / maxVal * 100).toFixed(0);
-      const row = document.createElement('div');
-      row.style.cssText = 'margin-bottom:var(--space-3);';
-      row.innerHTML = `
-        <div style="display:flex;justify-content:space-between;margin-bottom:var(--space-1);font-size:13px;">
-          <span><span style="color:var(--color-text-dim);margin-right:var(--space-2);">#${i + 1}</span>${name}</span>
-          <span style="font-family:var(--font-mono);color:var(--color-text-muted);">${formatCurrency(total)}</span>
-        </div>
-        <div class="progress">
-          <div class="progress-bar" style="width:${pct}%;background:var(--color-accent);opacity:${1 - i * 0.15};"></div>
-        </div>
-      `;
-      card.appendChild(row);
-    });
-
-    container.appendChild(card);
-  }
-
-  function renderSavingsRate(totalIncome, totalExpense) {
-    const rate = totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome * 100) : 0;
-    const saved = totalIncome - totalExpense;
-
-    const card = document.createElement('div');
-    card.className = 'card mb-6';
-    card.style.textAlign = 'center';
-
-    card.innerHTML = `
-      <h3 class="section-title mb-4">Tasa de ahorro</h3>
-      <div style="font-family:var(--font-display);font-weight:700;font-size:48px;color:${rate >= 0 ? 'var(--color-accent)' : 'var(--color-danger)'};">
-        ${rate.toFixed(0)}%
+    const section = document.createElement('div');
+    section.className = 'mb-4';
+    section.innerHTML = `
+      <div class="section-header mb-3">
+        <h2 class="section-title">${i18n.t('analytics.categoryBreakdown')}</h2>
+        <a class="section-link" href="#">${i18n.t('common.viewAll')}</a>
       </div>
-      <p style="color:var(--color-text-muted);font-size:14px;margin-top:var(--space-2);">
-        ${rate >= 0 ? 'Ahorraste' : 'Gastaste de más'} ${formatCurrency(Math.abs(saved))} este periodo
-      </p>
     `;
 
+    const grid = document.createElement('div');
+    grid.className = 'category-breakdown-grid';
+
+    const catIcons = { food: 'shopping-cart', transport: 'car', health: 'heart', entertain: 'gamepad-2', restaurant: 'utensils', services: 'zap', shopping: 'shopping-bag' };
+
+    sorted.forEach(cat => {
+      const pct = totalExpense > 0 ? ((cat.total / totalExpense) * 100).toFixed(0) : 0;
+      const catName = i18n.t(`category.${cat.id}`) !== `category.${cat.id}` ? i18n.t(`category.${cat.id}`) : cat.name;
+      const iconName = catIcons[cat.id] || 'circle';
+      const cardEl = document.createElement('div');
+      cardEl.className = 'category-breakdown-card';
+      cardEl.innerHTML = `
+        <div class="category-breakdown-card__icon"><i data-lucide="${iconName}"></i></div>
+        <div class="category-breakdown-card__name">${catName}</div>
+        <div class="category-breakdown-card__pct">${pct}%</div>
+        <div class="category-breakdown-card__amount">${formatCurrency(cat.total)}</div>
+      `;
+      grid.appendChild(cardEl);
+    });
+
+    section.appendChild(grid);
+    container.appendChild(section);
+  }
+
+  function renderAIInsight() {
+    const insights = [
+      { key: 'ai.insight1', params: { category: i18n.t('category.food'), percent: '15', amount: formatCurrency(27450) } },
+      { key: 'ai.insight2', params: {} },
+      { key: 'ai.insight3', params: {} },
+      { key: 'ai.insight4', params: {} },
+    ];
+    const insight = insights[Math.floor(Math.random() * insights.length)];
+
+    const card = document.createElement('div');
+    card.className = 'ai-insight-card mb-4';
+    card.innerHTML = `
+      <div class="ai-insight-card__header">
+        <span class="ai-insight-card__icon">✨</span>
+        <span class="ai-insight-card__title">${i18n.t('analytics.aiAnalysis')}</span>
+      </div>
+      <p class="ai-insight-card__text">${i18n.t(insight.key, insight.params)}</p>
+      <button class="btn btn-accent btn-lg btn-block ai-insight-card__cta">${i18n.t('analytics.viewSavingsPlan')}</button>
+    `;
     container.appendChild(card);
   }
 
-  function renderInsightCard() {
-    const insights = [
-      'Gastaste 34% más en restaurantes esta semana vs. tu promedio. ¿Quieres ver opciones para reducir este gasto?',
-      'Tu gasto en transporte bajó un 12% este mes. ¡Sigue así!',
-      'Llevas 3 meses consecutivos ahorrando más del 20% de tus ingresos. ¡Excelente hábito!',
-      'Los servicios representan el 25% de tus gastos fijos. Revisa si puedes optimizar alguno.',
-    ];
-
+  function renderCreateReport() {
     const card = document.createElement('div');
-    card.className = 'insight-card mb-6 animate-fade-in';
+    card.className = 'card create-report-card mb-6';
     card.innerHTML = `
-      <div class="insight-card__icon">💡</div>
-      <div class="insight-card__text">${insights[Math.floor(Math.random() * insights.length)]}</div>
+      <div class="create-report-card__icon"><i data-lucide="plus" style="width:32px;height:32px;color:var(--color-text-dim);"></i></div>
+      <div class="create-report-card__title">${i18n.t('analytics.createReport')}</div>
+      <p class="create-report-card__subtitle">${i18n.t('analytics.customizeReports')}</p>
     `;
     container.appendChild(card);
   }

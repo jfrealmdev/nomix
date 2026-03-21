@@ -49,6 +49,9 @@
   --transition-normal: 250ms ease;
   --transition-slow:   400ms ease;
 
+  /* Expense active (red for toggle) */
+  --color-expense-active: #E53E3E;
+
   /* Nav */
   --nav-height: 72px;
 }
