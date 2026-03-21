@@ -1,11 +1,12 @@
 import router from '../js/router.js';
+import i18n from '../js/i18n.js';
 
 const NAV_ITEMS = [
-  { path: '/dashboard', icon: 'home', label: 'Inicio' },
-  { path: '/transactions', icon: 'list', label: 'Movimientos' },
-  { path: '/scan', icon: 'scan', label: 'Escanear', isFab: true },
-  { path: '/analytics', icon: 'bar-chart-2', label: 'Análisis' },
-  { path: '/settings', icon: 'settings', label: 'Ajustes' },
+  { path: '/dashboard', icon: 'home', labelKey: 'nav.home' },
+  { path: '/transactions', icon: 'file-text', labelKey: 'nav.transactions' },
+  { path: '/scan', icon: 'plus-circle', labelKey: 'nav.add', isFab: true },
+  { path: '/analytics', icon: 'trending-up', labelKey: 'nav.analytics' },
+  { path: '/settings', icon: 'settings', labelKey: 'nav.settings' },
 ];
 
 function createIcon(name) {
@@ -20,21 +21,22 @@ export function renderBottomNav() {
 
   nav.innerHTML = '';
   nav.setAttribute('role', 'navigation');
-  nav.setAttribute('aria-label', 'Navegación principal');
+  nav.setAttribute('aria-label', i18n.t('nav.aria'));
 
   NAV_ITEMS.forEach(item => {
+    const label = i18n.t(item.labelKey);
     const btn = document.createElement('button');
     btn.className = item.isFab ? 'nav-fab' : 'nav-item';
-    btn.setAttribute('aria-label', item.label);
+    btn.setAttribute('aria-label', label);
     btn.dataset.path = item.path;
 
     const icon = createIcon(item.icon);
     btn.appendChild(icon);
 
     if (!item.isFab) {
-      const label = document.createElement('span');
-      label.textContent = item.label;
-      btn.appendChild(label);
+      const span = document.createElement('span');
+      span.textContent = label;
+      btn.appendChild(span);
     }
 
     btn.addEventListener('click', () => router.navigate(item.path));
@@ -50,15 +52,15 @@ export function renderSidebar() {
 
   sidebar.innerHTML = '';
   sidebar.setAttribute('role', 'navigation');
-  sidebar.setAttribute('aria-label', 'Navegación principal');
+  sidebar.setAttribute('aria-label', i18n.t('nav.aria'));
 
-  // Logo
   const logo = document.createElement('div');
   logo.className = 'sidebar-logo';
   logo.textContent = 'N';
   sidebar.appendChild(logo);
 
   NAV_ITEMS.forEach(item => {
+    const label = i18n.t(item.labelKey);
     const btn = document.createElement('button');
     btn.className = 'sidebar-item';
     btn.dataset.path = item.path;
@@ -66,9 +68,9 @@ export function renderSidebar() {
     const icon = createIcon(item.icon);
     btn.appendChild(icon);
 
-    const label = document.createElement('span');
-    label.textContent = item.label;
-    btn.appendChild(label);
+    const span = document.createElement('span');
+    span.textContent = label;
+    btn.appendChild(span);
 
     btn.addEventListener('click', () => router.navigate(item.path));
     sidebar.appendChild(btn);
@@ -78,11 +80,9 @@ export function renderSidebar() {
 }
 
 export function updateActiveNav(path) {
-  // Bottom nav
   document.querySelectorAll('#bottom-nav .nav-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.path === path);
   });
-  // Sidebar
   document.querySelectorAll('#sidebar .sidebar-item').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.path === path);
   });
@@ -96,7 +96,12 @@ export function initNav() {
     updateActiveNav(e.detail.path);
   });
 
-  // Re-create icons after rendering
+  window.addEventListener('lang:changed', () => {
+    renderBottomNav();
+    renderSidebar();
+    if (window.lucide) window.lucide.createIcons();
+  });
+
   if (window.lucide) {
     window.lucide.createIcons();
   }

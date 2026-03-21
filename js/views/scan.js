@@ -1,4 +1,5 @@
 import store from '../store.js';
+import i18n from '../i18n.js';
 import { formatCurrency, generateId } from '../utils.js';
 import { MOCK_RECEIPT_RESULT, MOCK_STATEMENT_ROWS } from '../mock-data.js';
 import toast from '../../components/toast.js';
@@ -6,19 +7,32 @@ import router from '../router.js';
 
 export default function renderScan(container) {
   const topBar = document.getElementById('top-bar');
-  topBar.innerHTML = `<div class="top-bar__greeting">Escanear / Cargar</div>`;
+  const settings = store.getSettings();
+
+  topBar.innerHTML = `
+    <div class="top-bar__brand">
+      <button class="btn-icon" id="scan-close-btn" aria-label="${i18n.t('common.close')}"><i data-lucide="x"></i></button>
+      <span class="top-bar__name" style="font-weight:700;">NOMIX</span>
+    </div>
+    <div class="top-bar__actions">
+      <div class="top-bar__avatar">${settings.name.charAt(0)}</div>
+    </div>
+  `;
+
+  document.getElementById('scan-close-btn')?.addEventListener('click', () => router.navigate('/dashboard'));
 
   let activeTab = 'camera';
 
   function render() {
     container.innerHTML = '';
 
-    // Sub-tabs
+    // 3-tab pills
     const tabs = document.createElement('div');
     tabs.className = 'tab-pills mb-6';
     tabs.innerHTML = `
-      <button class="tab-pill ${activeTab === 'camera' ? 'active' : ''}" data-tab="camera">📷 Escanear Recibo</button>
-      <button class="tab-pill ${activeTab === 'upload' ? 'active' : ''}" data-tab="upload">📄 Cargar Estado</button>
+      <button class="tab-pill ${activeTab === 'camera' ? 'active' : ''}" data-tab="camera">${i18n.t('scan.scanReceipt')}</button>
+      <button class="tab-pill ${activeTab === 'upload' ? 'active' : ''}" data-tab="upload">${i18n.t('scan.uploadStatement')}</button>
+      <button class="tab-pill ${activeTab === 'manual' ? 'active' : ''}" data-tab="manual">${i18n.t('scan.manual')}</button>
     `;
     tabs.querySelectorAll('.tab-pill').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -28,17 +42,15 @@ export default function renderScan(container) {
     });
     container.appendChild(tabs);
 
-    if (activeTab === 'camera') {
-      renderCameraTab();
-    } else {
-      renderUploadTab();
-    }
+    if (activeTab === 'camera') renderCameraTab();
+    else if (activeTab === 'upload') renderUploadTab();
+    else renderManualTab();
   }
 
+  // ===== CAMERA TAB =====
   function renderCameraTab() {
     const section = document.createElement('div');
 
-    // Scanner container
     const scanner = document.createElement('div');
     scanner.className = 'scanner-container mb-4';
 
@@ -48,7 +60,6 @@ export default function renderScan(container) {
     video.setAttribute('muted', '');
     scanner.appendChild(video);
 
-    // Scanner overlay with corner brackets
     const overlay = document.createElement('div');
     overlay.className = 'scanner-overlay';
     overlay.innerHTML = `
@@ -59,10 +70,9 @@ export default function renderScan(container) {
     `;
     scanner.appendChild(overlay);
 
-    // Hint text
     const hint = document.createElement('div');
-    hint.style.cssText = 'position:absolute;bottom:20%;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.7);font-size:14px;text-align:center;';
-    hint.textContent = 'Apunta al recibo';
+    hint.className = 'scanner-hint';
+    hint.textContent = i18n.t('scan.pointAtReceipt');
     scanner.appendChild(hint);
 
     section.appendChild(scanner);
@@ -71,29 +81,25 @@ export default function renderScan(container) {
     const controls = document.createElement('div');
     controls.className = 'scanner-controls';
 
-    // Gallery button
     const galleryBtn = document.createElement('button');
     galleryBtn.className = 'btn-icon';
     galleryBtn.innerHTML = '<i data-lucide="image"></i>';
-    galleryBtn.setAttribute('aria-label', 'Galería');
+    galleryBtn.setAttribute('aria-label', i18n.t('scan.gallery'));
 
-    // Capture button
     const captureBtn = document.createElement('button');
     captureBtn.className = 'capture-btn';
-    captureBtn.setAttribute('aria-label', 'Capturar');
+    captureBtn.setAttribute('aria-label', i18n.t('scan.capture'));
 
-    // Flash button
     const flashBtn = document.createElement('button');
     flashBtn.className = 'btn-icon';
     flashBtn.innerHTML = '<i data-lucide="zap"></i>';
-    flashBtn.setAttribute('aria-label', 'Flash');
+    flashBtn.setAttribute('aria-label', i18n.t('scan.flash'));
 
     controls.appendChild(galleryBtn);
     controls.appendChild(captureBtn);
     controls.appendChild(flashBtn);
     section.appendChild(controls);
 
-    // Hidden file input fallback
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
@@ -103,22 +109,18 @@ export default function renderScan(container) {
 
     container.appendChild(section);
 
-    // Camera logic
     let stream = null;
 
     async function startCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
         video.srcObject = stream;
       } catch {
-        // Fallback - show file input button
         scanner.innerHTML = `
           <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:var(--space-4);padding:var(--space-6);">
             <i data-lucide="camera-off" style="width:48px;height:48px;color:var(--color-text-dim);"></i>
-            <p style="color:var(--color-text-muted);text-align:center;">No se pudo acceder a la cámara</p>
-            <button class="btn btn-accent" id="fallback-camera-btn">📷 Tomar foto</button>
+            <p style="color:var(--color-text-muted);text-align:center;">${i18n.t('scan.cameraError')}</p>
+            <button class="btn btn-accent" id="fallback-camera-btn">${i18n.t('scan.takePhoto')}</button>
           </div>
         `;
         document.getElementById('fallback-camera-btn')?.addEventListener('click', () => fileInput.click());
@@ -127,26 +129,17 @@ export default function renderScan(container) {
     }
 
     function stopCamera() {
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-        stream = null;
-      }
-    }
-
-    function capturePhoto() {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      stopCamera();
-      showReview(dataUrl);
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     }
 
     captureBtn.addEventListener('click', () => {
       if (stream) {
-        capturePhoto();
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        stopCamera();
+        showReview(canvas.toDataURL('image/jpeg', 0.8));
       } else {
         fileInput.click();
       }
@@ -158,20 +151,13 @@ export default function renderScan(container) {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (ev) => {
-        stopCamera();
-        showReview(ev.target.result);
-      };
+      reader.onload = (ev) => { stopCamera(); showReview(ev.target.result); };
       reader.readAsDataURL(file);
     });
 
     startCamera();
 
-    // Cleanup on route change
-    const cleanup = () => {
-      stopCamera();
-      window.removeEventListener('route:changed', cleanup);
-    };
+    const cleanup = () => { stopCamera(); window.removeEventListener('route:changed', cleanup); };
     window.addEventListener('route:changed', cleanup);
 
     if (window.lucide) window.lucide.createIcons({ nodes: [section] });
@@ -180,96 +166,63 @@ export default function renderScan(container) {
   function showReview(imageDataUrl) {
     container.innerHTML = '';
 
-    // Image preview
     const preview = document.createElement('div');
     preview.className = 'card mb-4';
     preview.innerHTML = `<img src="${imageDataUrl}" style="width:100%;border-radius:var(--radius-sm);max-height:300px;object-fit:cover;">`;
     container.appendChild(preview);
 
-    // Loading state
     const loading = document.createElement('div');
     loading.className = 'card mb-4';
     loading.style.textAlign = 'center';
     loading.style.padding = 'var(--space-8)';
-    loading.innerHTML = `
-      <div class="spinner" style="margin:0 auto var(--space-4);"></div>
-      <p style="color:var(--color-text-muted);">Analizando recibo…</p>
-    `;
+    loading.innerHTML = `<div class="spinner" style="margin:0 auto var(--space-4);"></div><p style="color:var(--color-text-muted);">${i18n.t('scan.analyzing')}</p>`;
     container.appendChild(loading);
 
-    // Mock OCR delay
-    setTimeout(() => {
-      loading.remove();
-      showExtractedData();
-    }, 2000);
+    setTimeout(() => { loading.remove(); showExtractedData(); }, 2000);
   }
 
   function showExtractedData() {
     const result = MOCK_RECEIPT_RESULT;
+    const catName = i18n.t(`category.${result.categoryId}`);
 
     const card = document.createElement('div');
     card.className = 'card mb-4 animate-scale-in';
-
     card.innerHTML = `
-      <h3 style="font-family:var(--font-display);font-weight:600;font-size:16px;margin-bottom:var(--space-4);">Datos extraídos</h3>
+      <h3 style="font-family:var(--font-display);font-weight:600;font-size:16px;margin-bottom:var(--space-4);">${i18n.t('scan.extractedData')}</h3>
       <div style="display:flex;flex-direction:column;gap:var(--space-3);">
-        <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--color-text-muted);">Comercio</span>
-          <span style="font-weight:500;">${result.merchant}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--color-text-muted);">Fecha</span>
-          <span>${result.date}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--color-text-muted);">Total</span>
-          <span style="font-family:var(--font-mono);font-weight:500;font-size:18px;color:var(--color-accent);">${formatCurrency(result.total)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;">
-          <span style="color:var(--color-text-muted);">Categoría</span>
-          <span>🛒 Alimentación</span>
-        </div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--color-text-muted);">${i18n.t('scan.merchant')}</span><span style="font-weight:500;">${result.merchant}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--color-text-muted);">${i18n.t('scan.date')}</span><span>${result.date}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--color-text-muted);">${i18n.t('scan.total')}</span><span style="font-family:var(--font-mono);font-weight:500;font-size:18px;color:var(--color-accent);">${formatCurrency(result.total)}</span></div>
+        <div style="display:flex;justify-content:space-between;"><span style="color:var(--color-text-muted);">${i18n.t('scan.category')}</span><span>🛒 ${catName}</span></div>
       </div>
-      <details style="margin-top:var(--space-4);">
-        <summary style="cursor:pointer;color:var(--color-accent);font-size:13px;">Ver artículos (${result.items.length})</summary>
-        <div style="margin-top:var(--space-3);">
-          ${result.items.map(item => `
-            <div style="display:flex;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border);font-size:13px;">
-              <span>${item.name} x${item.qty}</span>
-              <span style="font-family:var(--font-mono);">${formatCurrency(item.qty * item.price)}</span>
-            </div>
-          `).join('')}
-        </div>
+      <details style="margin-top:var(--space-4);"><summary style="cursor:pointer;color:var(--color-accent);font-size:13px;">${i18n.t('scan.viewItems')} (${result.items.length})</summary>
+        <div style="margin-top:var(--space-3);">${result.items.map(item => `
+          <div style="display:flex;justify-content:space-between;padding:var(--space-2) 0;border-bottom:1px solid var(--color-border);font-size:13px;"><span>${item.name} x${item.qty}</span><span style="font-family:var(--font-mono);">${formatCurrency(item.qty * item.price)}</span></div>
+        `).join('')}</div>
       </details>
     `;
-
     container.appendChild(card);
 
-    // Action buttons
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:var(--space-3);';
 
     const retryBtn = document.createElement('button');
     retryBtn.className = 'btn btn-ghost';
     retryBtn.style.flex = '1';
-    retryBtn.textContent = 'Reintentar';
+    retryBtn.textContent = i18n.t('common.retry');
     retryBtn.addEventListener('click', () => render());
 
     const confirmBtn = document.createElement('button');
     confirmBtn.className = 'btn btn-accent';
     confirmBtn.style.flex = '1';
-    confirmBtn.textContent = 'Confirmar y Guardar';
+    confirmBtn.textContent = i18n.t('scan.confirmSave');
     confirmBtn.addEventListener('click', () => {
       store.addTransaction({
-        id: generateId(),
-        date: new Date(result.date).toISOString(),
-        merchant: result.merchant,
-        categoryId: result.categoryId,
-        accountId: 'acc1',
-        amount: -result.total,
-        note: 'Escaneado con cámara',
+        id: generateId(), date: new Date(result.date).toISOString(),
+        merchant: result.merchant, categoryId: result.categoryId,
+        accountId: 'acc1', amount: -result.total, note: '',
       });
-      toast.show({ message: 'Transacción guardada', type: 'success' });
+      toast.show({ message: i18n.t('scan.txSaved'), type: 'success' });
       router.navigate('/dashboard');
     });
 
@@ -278,17 +231,17 @@ export default function renderScan(container) {
     container.appendChild(actions);
   }
 
+  // ===== UPLOAD TAB =====
   function renderUploadTab() {
     const section = document.createElement('div');
 
-    // Upload zone
     const zone = document.createElement('div');
     zone.className = 'upload-zone mb-6';
     zone.innerHTML = `
       <div class="upload-zone__icon">📄</div>
-      <div class="upload-zone__title">Arrastra tu estado de cuenta aquí</div>
-      <p class="upload-zone__hint">o toca para seleccionar</p>
-      <p class="upload-zone__hint">PDF, CSV, XLS — Hasta 10MB</p>
+      <div class="upload-zone__title">${i18n.t('scan.dragStatement')}</div>
+      <p class="upload-zone__hint">${i18n.t('scan.orTapSelect')}</p>
+      <p class="upload-zone__hint">${i18n.t('scan.fileFormats')}</p>
     `;
 
     const fileInput = document.createElement('input');
@@ -297,35 +250,20 @@ export default function renderScan(container) {
     fileInput.style.display = 'none';
 
     zone.addEventListener('click', () => fileInput.click());
-
-    zone.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      zone.classList.add('dragover');
-    });
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('dragover'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-    zone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      zone.classList.remove('dragover');
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    });
-
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) handleFile(file);
-    });
+    zone.addEventListener('drop', (e) => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', (e) => { if (e.target.files[0]) handleFile(e.target.files[0]); });
 
     section.appendChild(zone);
     section.appendChild(fileInput);
 
-    // Compatible formats
     const formats = document.createElement('div');
     formats.className = 'mb-4';
     formats.innerHTML = `
-      <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:var(--space-3);">Formatos compatibles:</p>
+      <p style="font-size:13px;color:var(--color-text-muted);margin-bottom:var(--space-3);">${i18n.t('scan.compatibleFormats')}</p>
       <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);">
-        ${['Banco Santander', 'BBVA', 'Banorte', 'Banamex', 'Banco de Guatemala', 'Banrural', 'BAC', 'American Express', 'Visa', 'Mastercard']
-          .map(b => `<span class="chip">${b}</span>`).join('')}
+        ${['Banco Popular', 'Banreservas', 'BHD León', 'Scotiabank', 'BAC', 'American Express', 'Visa', 'Mastercard'].map(b => `<span class="chip">${b}</span>`).join('')}
       </div>
     `;
     section.appendChild(formats);
@@ -333,17 +271,14 @@ export default function renderScan(container) {
   }
 
   function handleFile(file) {
-    // Validate size
     if (file.size > 10 * 1024 * 1024) {
-      toast.show({ message: 'El archivo excede 10MB', type: 'error' });
+      toast.show({ message: i18n.t('scan.fileTooLarge'), type: 'error' });
       return;
     }
 
     container.innerHTML = '';
-
-    // File info
-    const typeIcons = { pdf: '📕', csv: '📊', xlsx: '📗', xls: '📗', txt: '📝' };
     const ext = file.name.split('.').pop().toLowerCase();
+    const typeIcons = { pdf: '📕', csv: '📊', xlsx: '📗', xls: '📗', txt: '📝' };
 
     const fileCard = document.createElement('div');
     fileCard.className = 'card mb-4';
@@ -358,30 +293,22 @@ export default function renderScan(container) {
     `;
     container.appendChild(fileCard);
 
-    // Progress bar
     const progressCard = document.createElement('div');
     progressCard.className = 'card mb-4';
     progressCard.innerHTML = `
-      <p style="font-size:14px;margin-bottom:var(--space-3);">Procesando archivo...</p>
-      <div class="progress">
-        <div class="progress-bar" id="upload-progress" style="width:0%;"></div>
-      </div>
+      <p style="font-size:14px;margin-bottom:var(--space-3);">${i18n.t('scan.processingFile')}</p>
+      <div class="progress"><div class="progress-bar" id="upload-progress" style="width:0%;"></div></div>
       <p style="font-size:12px;color:var(--color-text-muted);margin-top:var(--space-2);" id="progress-text">0%</p>
     `;
     container.appendChild(progressCard);
 
-    // Animate progress
     const bar = progressCard.querySelector('#upload-progress');
     const text = progressCard.querySelector('#progress-text');
     let progress = 0;
 
     const interval = setInterval(() => {
       progress += Math.random() * 15 + 5;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        setTimeout(() => showParsedResults(), 300);
-      }
+      if (progress >= 100) { progress = 100; clearInterval(interval); setTimeout(() => showParsedResults(), 300); }
       bar.style.width = progress + '%';
       text.textContent = Math.floor(progress) + '%';
     }, 200);
@@ -389,100 +316,76 @@ export default function renderScan(container) {
 
   function showParsedResults() {
     container.innerHTML = '';
-
     const rows = MOCK_STATEMENT_ROWS;
-
-    // Summary
-    const summary = document.createElement('div');
-    summary.className = 'card mb-4 animate-scale-in';
-
     const firstDate = rows[rows.length - 1].date;
     const lastDate = rows[0].date;
 
+    const summary = document.createElement('div');
+    summary.className = 'card mb-4 animate-scale-in';
     summary.innerHTML = `
-      <h3 style="font-family:var(--font-display);font-weight:600;font-size:16px;margin-bottom:var(--space-3);">Resultados del análisis</h3>
+      <h3 style="font-family:var(--font-display);font-weight:600;font-size:16px;margin-bottom:var(--space-3);">${i18n.t('scan.analysisResults')}</h3>
       <div style="display:flex;gap:var(--space-4);flex-wrap:wrap;">
-        <div class="pill pill-income" style="font-size:14px;padding:var(--space-2) var(--space-3);">
-          ${rows.length} transacciones encontradas
-        </div>
-        <div class="badge">Periodo: ${firstDate} — ${lastDate}</div>
+        <div class="pill pill-income" style="font-size:14px;padding:var(--space-2) var(--space-3);">${rows.length} ${i18n.t('scan.txFound')}</div>
+        <div class="badge">${i18n.t('scan.period')} ${firstDate} — ${lastDate}</div>
       </div>
     `;
     container.appendChild(summary);
 
-    // Preview table
     const table = document.createElement('div');
     table.className = 'card mb-4';
     table.innerHTML = `
-      <h4 style="font-size:14px;font-weight:500;margin-bottom:var(--space-3);">Vista previa (primeras 5)</h4>
+      <h4 style="font-size:14px;font-weight:500;margin-bottom:var(--space-3);">${i18n.t('scan.preview')}</h4>
       <div style="overflow-x:auto;">
         <table style="width:100%;font-size:13px;border-collapse:collapse;">
-          <thead>
-            <tr style="border-bottom:1px solid var(--color-border);color:var(--color-text-muted);">
-              <th style="text-align:left;padding:var(--space-2);">Fecha</th>
-              <th style="text-align:left;padding:var(--space-2);">Descripción</th>
-              <th style="text-align:right;padding:var(--space-2);">Monto</th>
-              <th style="text-align:center;padding:var(--space-2);">Tipo</th>
+          <thead><tr style="border-bottom:1px solid var(--color-border);color:var(--color-text-muted);">
+            <th style="text-align:left;padding:var(--space-2);">${i18n.t('scan.dateHeader')}</th>
+            <th style="text-align:left;padding:var(--space-2);">${i18n.t('scan.descHeader')}</th>
+            <th style="text-align:right;padding:var(--space-2);">${i18n.t('scan.amountHeader')}</th>
+            <th style="text-align:center;padding:var(--space-2);">${i18n.t('scan.typeHeader')}</th>
+          </tr></thead>
+          <tbody>${rows.slice(0, 5).map(r => `
+            <tr style="border-bottom:1px solid var(--color-border);">
+              <td style="padding:var(--space-2);white-space:nowrap;">${r.date}</td>
+              <td style="padding:var(--space-2);">${r.description}</td>
+              <td style="padding:var(--space-2);text-align:right;font-family:var(--font-mono);color:${r.amount > 0 ? 'var(--color-income)' : 'var(--color-expense)'};">${formatCurrency(r.amount)}</td>
+              <td style="padding:var(--space-2);text-align:center;"><span class="pill ${r.type === 'credit' ? 'pill-income' : 'pill-expense'}">${r.type === 'credit' ? i18n.t('add.income') : i18n.t('add.expense')}</span></td>
             </tr>
-          </thead>
-          <tbody>
-            ${rows.slice(0, 5).map(r => `
-              <tr style="border-bottom:1px solid var(--color-border);">
-                <td style="padding:var(--space-2);white-space:nowrap;">${r.date}</td>
-                <td style="padding:var(--space-2);">${r.description}</td>
-                <td style="padding:var(--space-2);text-align:right;font-family:var(--font-mono);color:${r.amount > 0 ? 'var(--color-income)' : 'var(--color-expense)'};">
-                  ${formatCurrency(r.amount)}
-                </td>
-                <td style="padding:var(--space-2);text-align:center;">
-                  <span class="pill ${r.type === 'credit' ? 'pill-income' : 'pill-expense'}">${r.type === 'credit' ? 'Ingreso' : 'Gasto'}</span>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
+          `).join('')}</tbody>
         </table>
       </div>
     `;
     container.appendChild(table);
 
-    // Actions
     const actions = document.createElement('div');
     actions.style.cssText = 'display:flex;gap:var(--space-3);';
 
     const reviewBtn = document.createElement('button');
     reviewBtn.className = 'btn btn-ghost';
     reviewBtn.style.flex = '1';
-    reviewBtn.textContent = 'Revisar y Editar';
+    reviewBtn.textContent = i18n.t('scan.reviewEdit');
     reviewBtn.addEventListener('click', () => render());
 
     const importBtn = document.createElement('button');
     importBtn.className = 'btn btn-accent';
     importBtn.style.flex = '1';
-    importBtn.textContent = 'Importar Todo';
+    importBtn.textContent = i18n.t('scan.importAll');
     importBtn.addEventListener('click', () => {
-      // Convert statement rows to transactions
-      const txs = rows.map((r, i) => ({
-        id: generateId() + i,
-        date: new Date(r.date).toISOString(),
-        merchant: r.description,
-        categoryId: r.amount > 0 ? 'income' : ['food', 'transport', 'services', 'restaurant', 'shopping'][i % 5],
-        accountId: 'acc1',
-        amount: r.amount,
-        note: 'Importado desde estado de cuenta',
+      const txs = rows.map((r, idx) => ({
+        id: generateId() + idx, date: new Date(r.date).toISOString(),
+        merchant: r.description, categoryId: r.amount > 0 ? 'income' : ['food', 'transport', 'services', 'restaurant', 'shopping'][idx % 5],
+        accountId: 'acc1', amount: r.amount, note: '',
       }));
-
       store.addTransactions(txs);
 
-      // Success screen
       container.innerHTML = `
         <div class="card" style="text-align:center;padding:var(--space-10);">
           <div style="font-size:48px;margin-bottom:var(--space-4);">✅</div>
-          <h3 style="font-family:var(--font-display);font-weight:600;font-size:20px;margin-bottom:var(--space-3);">¡Importación exitosa!</h3>
-          <p style="color:var(--color-text-muted);margin-bottom:var(--space-6);">${rows.length} transacciones importadas correctamente</p>
-          <button class="btn btn-accent btn-lg" onclick="location.hash='#/transactions'">Ver movimientos</button>
+          <h3 style="font-family:var(--font-display);font-weight:600;font-size:20px;margin-bottom:var(--space-3);">${i18n.t('scan.importSuccess')}</h3>
+          <p style="color:var(--color-text-muted);margin-bottom:var(--space-6);">${rows.length} ${i18n.t('scan.txImported')}</p>
+          <button class="btn btn-accent btn-lg" onclick="location.hash='#/transactions'">${i18n.t('scan.viewTx')}</button>
         </div>
       `;
-
-      toast.show({ message: `${rows.length} transacciones importadas`, type: 'success' });
+      toast.show({ message: `${rows.length} ${i18n.t('scan.txImportedToast')}`, type: 'success' });
     });
 
     actions.appendChild(reviewBtn);
@@ -490,5 +393,134 @@ export default function renderScan(container) {
     container.appendChild(actions);
   }
 
+  // ===== MANUAL TAB =====
+  function renderManualTab() {
+    const section = document.createElement('div');
+    section.className = 'manual-add-form';
+
+    let txType = 'expense';
+    let selectedCategory = null;
+
+    const categories = store.getCategories();
+    const accounts = store.getAccounts();
+
+    const catIcons = {
+      food: '🛒', transport: '🚗', health: '💊', entertain: '🎬',
+      restaurant: '🍽️', services: '⚡', shopping: '🛍️', income: '💰'
+    };
+
+    section.innerHTML = `
+      <div class="add-header">${i18n.t('add.title')}</div>
+
+      <div class="type-toggle mb-6">
+        <button class="type-toggle__btn type-toggle__btn--expense active" data-type="expense">
+          <i data-lucide="arrow-down-circle" style="width:16px;height:16px"></i> ${i18n.t('add.expense')}
+        </button>
+        <button class="type-toggle__btn type-toggle__btn--income" data-type="income">
+          <i data-lucide="arrow-up-circle" style="width:16px;height:16px"></i> ${i18n.t('add.income')}
+        </button>
+      </div>
+
+      <div class="add-amount-label">${i18n.t('add.amount')}</div>
+      <div class="add-amount-display mb-6">
+        <span class="add-amount-symbol">$</span>
+        <input type="number" class="add-amount-input" id="manual-amount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
+      </div>
+
+      <div class="add-field-label">${i18n.t('add.description')}</div>
+      <div class="add-input-row mb-6">
+        <i data-lucide="align-left" style="width:18px;height:18px;color:var(--color-text-dim);"></i>
+        <input type="text" class="add-text-input" id="manual-merchant" placeholder="${i18n.t('add.descPlaceholder')}">
+      </div>
+
+      <div class="add-field-label">${i18n.t('add.category')}</div>
+      <div class="add-category-grid mb-6" id="manual-category-grid"></div>
+
+      <div class="add-field-label">${i18n.t('add.date')}</div>
+      <div class="add-select-row mb-4">
+        <i data-lucide="calendar" style="width:18px;height:18px;color:var(--color-accent);"></i>
+        <input type="date" class="add-select-input" id="manual-date" value="${new Date().toISOString().split('T')[0]}">
+      </div>
+
+      <div class="add-field-label">${i18n.t('add.account')}</div>
+      <div class="add-select-row mb-6">
+        <span style="font-size:18px;">🏦</span>
+        <select class="add-select-input" id="manual-account">
+          ${accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('')}
+        </select>
+      </div>
+
+      <button class="btn btn-accent btn-lg btn-block add-save-btn" id="manual-save">
+        <i data-lucide="check-circle" style="width:20px;height:20px"></i> ${i18n.t('add.save')}
+      </button>
+    `;
+
+    container.appendChild(section);
+
+    // Category grid
+    function renderCategoryGrid(type) {
+      const grid = section.querySelector('#manual-category-grid');
+      const cats = categories.filter(c => type === 'income' ? c.id === 'income' : c.id !== 'income');
+      grid.innerHTML = cats.map(c => `
+        <button class="add-category-btn" data-id="${c.id}">
+          <span class="add-category-btn__icon">${catIcons[c.id] || '❓'}</span>
+          <span class="add-category-btn__label">${i18n.t(`category.short.${c.id}`) !== `category.short.${c.id}` ? i18n.t(`category.short.${c.id}`) : c.name.toUpperCase()}</span>
+        </button>
+      `).join('');
+
+      grid.querySelectorAll('.add-category-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          grid.querySelectorAll('.add-category-btn').forEach(b => b.classList.remove('selected'));
+          btn.classList.add('selected');
+          selectedCategory = btn.dataset.id;
+        });
+      });
+    }
+
+    renderCategoryGrid('expense');
+
+    // Type toggle
+    const toggleBtns = section.querySelectorAll('.type-toggle__btn');
+    toggleBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        txType = btn.dataset.type;
+        toggleBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedCategory = null;
+        renderCategoryGrid(txType);
+        if (window.lucide) window.lucide.createIcons({ nodes: [section] });
+      });
+    });
+
+    // Save
+    section.querySelector('#manual-save').addEventListener('click', () => {
+      const amount = parseFloat(section.querySelector('#manual-amount').value);
+      const merchant = section.querySelector('#manual-merchant').value;
+      const date = section.querySelector('#manual-date').value;
+      const accountId = section.querySelector('#manual-account').value;
+
+      if (!amount || !merchant || !selectedCategory) {
+        toast.show({ message: i18n.t('add.fillAll'), type: 'error' });
+        return;
+      }
+
+      store.addTransaction({
+        id: generateId(),
+        date: new Date(date).toISOString(),
+        merchant,
+        categoryId: selectedCategory,
+        accountId,
+        amount: txType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
+        note: '',
+      });
+
+      toast.show({ message: i18n.t('add.saved'), type: 'success' });
+      router.navigate('/transactions');
+    });
+
+    if (window.lucide) window.lucide.createIcons({ nodes: [section] });
+  }
+
   render();
+  if (window.lucide) window.lucide.createIcons({ nodes: [topBar] });
 }

@@ -1,40 +1,51 @@
 import store from '../store.js';
-import { formatCurrency, getMonthName, groupTransactionsByDate, generateId, getCategoryById } from '../utils.js';
+import i18n from '../i18n.js';
+import { formatCurrency, getMonthName, groupTransactionsByDate, getDateGroupDateLabel } from '../utils.js';
 import { createTransactionRow } from '../../components/card.js';
-import modal from '../../components/modal.js';
-import toast from '../../components/toast.js';
-import router from '../router.js';
 
 const PAGE_SIZE = 20;
 
 export default function renderTransactions(container) {
-  let filter = 'all'; // all | expense | income
-  let categoryFilter = null;
+  let timeFilter = 'week'; // week | month | year | custom
   let searchQuery = '';
-  let currentMonth = new Date().getMonth();
-  let currentYear = new Date().getFullYear();
   let page = 1;
+
+  function getDateRange() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (timeFilter === 'week') {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 7);
+      return { start, end: now };
+    }
+    if (timeFilter === 'month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { start, end: now };
+    }
+    if (timeFilter === 'year') {
+      const start = new Date(now.getFullYear(), 0, 1);
+      return { start, end: now };
+    }
+    // custom — show all
+    return { start: new Date(2000, 0, 1), end: now };
+  }
 
   function getFilteredTxs() {
     let txs = store.getTransactions();
+    const { start, end } = getDateRange();
 
-    // Month filter
     txs = txs.filter(t => {
       const d = new Date(t.date);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+      return d >= start && d <= end;
     });
 
-    // Type filter
-    if (filter === 'expense') txs = txs.filter(t => t.amount < 0);
-    if (filter === 'income') txs = txs.filter(t => t.amount > 0);
-
-    // Category filter
-    if (categoryFilter) txs = txs.filter(t => t.categoryId === categoryFilter);
-
-    // Search
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      txs = txs.filter(t => t.merchant.toLowerCase().includes(q));
+      txs = txs.filter(t => {
+        const catName = (i18n.t(`category.${t.categoryId}`) || '').toLowerCase();
+        return t.merchant.toLowerCase().includes(q) || catName.includes(q);
+      });
     }
 
     return txs;
@@ -46,8 +57,14 @@ export default function renderTransactions(container) {
     // Top bar
     const topBar = document.getElementById('top-bar');
     topBar.innerHTML = `
-      <div class="top-bar__greeting">Movimientos</div>
-      <button class="btn-icon" id="add-tx-btn" aria-label="Agregar transacción"><i data-lucide="plus"></i></button>
+      <div class="top-bar__brand">
+        <div class="top-bar__logo">N</div>
+        <span class="top-bar__name">Nomix</span>
+      </div>
+      <div class="top-bar__actions">
+        <button class="btn-icon" aria-label="Notifications"><i data-lucide="bell"></i></button>
+        <div class="top-bar__avatar">${store.getSettings().name.charAt(0)}</div>
+      </div>
     `;
 
     // Search
@@ -55,7 +72,7 @@ export default function renderTransactions(container) {
     searchWrap.className = 'search-wrapper mb-4';
     searchWrap.innerHTML = `
       <i data-lucide="search"></i>
-      <input type="search" class="search-input" placeholder="Buscar movimiento..." value="${searchQuery}">
+      <input type="search" class="search-input" placeholder="${i18n.t('transactions.search')}" value="${searchQuery}">
     `;
     container.appendChild(searchWrap);
 
@@ -66,79 +83,40 @@ export default function renderTransactions(container) {
       renderList();
     });
 
-    // Filter chips
+    // Time filter chips
     const filterRow = document.createElement('div');
-    filterRow.className = 'filter-row mb-3';
+    filterRow.className = 'filter-row mb-4';
 
-    const filters = [
-      { id: 'all', label: 'Todos' },
-      { id: 'expense', label: 'Gastos' },
-      { id: 'income', label: 'Ingresos' },
+    const timeFilters = [
+      { id: 'week', labelKey: 'transactions.week' },
+      { id: 'month', labelKey: 'transactions.month' },
+      { id: 'year', labelKey: 'transactions.year' },
+      { id: 'custom', labelKey: 'transactions.custom', icon: 'calendar' },
     ];
 
-    filters.forEach(f => {
+    timeFilters.forEach(f => {
       const chip = document.createElement('button');
-      chip.className = `chip ${filter === f.id ? 'chip-active' : ''}`;
-      chip.textContent = f.label;
+      chip.className = `chip ${timeFilter === f.id ? 'chip-active' : ''}`;
+      if (f.icon) {
+        chip.innerHTML = `<i data-lucide="${f.icon}" style="width:14px;height:14px"></i> ${i18n.t(f.labelKey)}`;
+      } else {
+        chip.textContent = i18n.t(f.labelKey);
+      }
       chip.addEventListener('click', () => {
-        filter = f.id;
-        categoryFilter = null;
+        timeFilter = f.id;
         page = 1;
         render();
       });
       filterRow.appendChild(chip);
     });
-
-    // Category chips
-    const categories = store.getCategories().filter(c => c.id !== 'income');
-    categories.forEach(cat => {
-      const chip = document.createElement('button');
-      chip.className = `chip ${categoryFilter === cat.id ? 'chip-active' : ''}`;
-      chip.textContent = `${cat.icon} ${cat.name}`;
-      chip.addEventListener('click', () => {
-        categoryFilter = categoryFilter === cat.id ? null : cat.id;
-        filter = 'all';
-        page = 1;
-        render();
-      });
-      filterRow.appendChild(chip);
-    });
-
     container.appendChild(filterRow);
 
-    // Month picker
-    const monthPicker = document.createElement('div');
-    monthPicker.className = 'month-picker mb-4';
-    monthPicker.innerHTML = `
-      <button aria-label="Mes anterior"><i data-lucide="chevron-left"></i></button>
-      <span>${getMonthName(currentMonth)} ${currentYear}</span>
-      <button aria-label="Mes siguiente"><i data-lucide="chevron-right"></i></button>
-    `;
-
-    const [prevBtn, , nextBtn] = monthPicker.children;
-    prevBtn.addEventListener('click', () => {
-      currentMonth--;
-      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-      page = 1;
-      render();
-    });
-    nextBtn.addEventListener('click', () => {
-      currentMonth++;
-      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-      page = 1;
-      render();
-    });
-    container.appendChild(monthPicker);
-
-    // Transaction list container
+    // Transaction list
     const listContainer = document.createElement('div');
     listContainer.id = 'tx-list';
     container.appendChild(listContainer);
 
     renderList();
-
-    // Add tx button
-    document.getElementById('add-tx-btn')?.addEventListener('click', openQuickAdd);
 
     if (window.lucide) window.lucide.createIcons({ nodes: [container, topBar] });
   }
@@ -155,152 +133,49 @@ export default function renderTransactions(container) {
       listContainer.innerHTML = `
         <div class="empty-state">
           <div class="empty-state__icon">🔍</div>
-          <div class="empty-state__title">0 resultados</div>
-          <p style="color:var(--color-text-muted)">No se encontraron movimientos con estos filtros</p>
+          <div class="empty-state__title">${i18n.t('common.noResults')}</div>
+          <p style="color:var(--color-text-muted)">${i18n.t('transactions.noResults')}</p>
         </div>
       `;
       return;
     }
 
+    // Group by date
     const groups = groupTransactionsByDate(paged);
-    Object.entries(groups).forEach(([label, groupTxs]) => {
+    groups.forEach(group => {
       const header = document.createElement('div');
       header.className = 'date-group-header';
-      header.textContent = label;
+      header.innerHTML = `
+        <span class="date-group-header__label">${group.label}</span>
+        <span class="date-group-header__date">${getDateGroupDateLabel(group.date)}</span>
+      `;
       listContainer.appendChild(header);
 
-      groupTxs.forEach(tx => {
-        listContainer.appendChild(createTransactionRow(tx, true));
+      group.txs.forEach(tx => {
+        listContainer.appendChild(createTransactionRow(tx));
       });
     });
 
-    // Load more
+    // Loading indicator
     if (paged.length < txs.length) {
-      const loadMore = document.createElement('button');
-      loadMore.className = 'btn btn-ghost btn-block mt-4';
-      loadMore.textContent = `Cargar más (${txs.length - paged.length} restantes)`;
-      loadMore.addEventListener('click', () => {
-        page++;
-        renderList();
+      const loading = document.createElement('div');
+      loading.className = 'loading-indicator';
+      loading.innerHTML = `
+        <div class="spinner-sm"></div>
+        <span>${i18n.t('transactions.loadingOlder')}</span>
+      `;
+      listContainer.appendChild(loading);
+
+      // Simple scroll-based load more
+      const observer = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting) {
+          observer.disconnect();
+          page++;
+          renderList();
+        }
       });
-      listContainer.appendChild(loadMore);
+      observer.observe(loading);
     }
-  }
-
-  function openQuickAdd() {
-    const form = document.createElement('div');
-
-    const categories = store.getCategories();
-    const accounts = store.getAccounts();
-
-    form.innerHTML = `
-      <div class="form-group">
-        <div class="toggle-group mb-4">
-          <button class="toggle-group__btn active-expense" data-type="expense">Gasto</button>
-          <button class="toggle-group__btn" data-type="income">Ingreso</button>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Monto</label>
-        <input type="number" class="input" id="tx-amount" placeholder="0.00" step="0.01" min="0" inputmode="decimal">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Descripción</label>
-        <input type="text" class="input" id="tx-merchant" placeholder="Nombre del comercio">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Categoría</label>
-        <div class="category-grid" id="tx-category-grid"></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group" style="flex:1">
-          <label class="form-label">Fecha</label>
-          <input type="date" class="input" id="tx-date" value="${new Date().toISOString().split('T')[0]}">
-        </div>
-        <div class="form-group" style="flex:1">
-          <label class="form-label">Cuenta</label>
-          <select class="select" id="tx-account">
-            ${accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-    `;
-
-    // Toggle type
-    let txType = 'expense';
-    let selectedCategory = null;
-
-    function renderCategoryGrid(type) {
-      const grid = form.querySelector('#tx-category-grid');
-      const cats = store.getCategories().filter(c =>
-        type === 'income' ? c.id === 'income' : c.id !== 'income'
-      );
-      grid.innerHTML = cats.map(c => `
-        <button class="category-option" data-id="${c.id}">
-          <span class="category-option__icon">${c.icon}</span>
-          <span>${c.name}</span>
-        </button>
-      `).join('');
-      grid.querySelectorAll('.category-option').forEach(opt => {
-        opt.addEventListener('click', () => {
-          grid.querySelectorAll('.category-option').forEach(o => o.classList.remove('selected'));
-          opt.classList.add('selected');
-          selectedCategory = opt.dataset.id;
-        });
-      });
-    }
-
-    renderCategoryGrid('expense');
-
-    const toggleBtns = form.querySelectorAll('.toggle-group__btn');
-    toggleBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        txType = btn.dataset.type;
-        toggleBtns.forEach(b => {
-          b.className = 'toggle-group__btn';
-          if (b.dataset.type === txType) {
-            b.classList.add(txType === 'income' ? 'active-income' : 'active-expense');
-          }
-        });
-        selectedCategory = null;
-        renderCategoryGrid(txType);
-      });
-    });
-
-    modal.open({
-      title: 'Nuevo Movimiento',
-      content: form,
-      isSheet: true,
-      actions: [
-        { label: 'Cancelar', variant: 'ghost' },
-        {
-          label: 'Guardar', variant: 'accent', handler: () => {
-            const amount = parseFloat(form.querySelector('#tx-amount').value);
-            const merchant = form.querySelector('#tx-merchant').value;
-            const date = form.querySelector('#tx-date').value;
-            const accountId = form.querySelector('#tx-account').value;
-
-            if (!amount || !merchant || !selectedCategory) {
-              toast.show({ message: 'Completa todos los campos', type: 'error' });
-              return;
-            }
-
-            store.addTransaction({
-              id: generateId(),
-              date: new Date(date).toISOString(),
-              merchant,
-              categoryId: selectedCategory,
-              accountId,
-              amount: txType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
-              note: '',
-            });
-
-            toast.show({ message: 'Movimiento guardado', type: 'success' });
-            render();
-          }
-        },
-      ]
-    });
   }
 
   render();

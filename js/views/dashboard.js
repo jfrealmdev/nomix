@@ -1,19 +1,19 @@
 import store from '../store.js';
-import { formatCurrency, getGreeting } from '../utils.js';
-import { createAccountCard, createAddAccountCard, createTransactionRow } from '../../components/card.js';
+import i18n from '../i18n.js';
+import { formatCurrency, formatCurrencyParts, getGreeting } from '../utils.js';
+import { createAccountCard, createTransactionRow } from '../../components/card.js';
 import { createDonutChart } from '../../components/chart-widget.js';
-import router from '../router.js';
 
 function animateCountUp(el, target, duration = 800) {
   const start = performance.now();
-  const format = (v) => formatCurrency(v);
+  const parts = formatCurrencyParts(target);
 
   function step(now) {
     const elapsed = now - start;
     const progress = Math.min(elapsed / duration, 1);
-    // ease-out cubic
     const eased = 1 - Math.pow(1 - progress, 3);
-    el.textContent = format(target * eased);
+    const current = formatCurrencyParts(target * eased);
+    el.innerHTML = `${current.symbol}<span class="balance-integer">${current.integer}</span>.<span class="balance-decimal">${current.decimal}</span>`;
     if (progress < 1) requestAnimationFrame(step);
   }
 
@@ -27,72 +27,69 @@ export default function renderDashboard(container) {
   const spending = store.getCategorySpending();
   const recentTxs = store.getTransactions().slice(0, 5);
 
-  // Top bar
+  // Top bar with logo, bell, avatar
   const topBar = document.getElementById('top-bar');
   topBar.innerHTML = `
-    <div class="top-bar__greeting">${getGreeting()}, ${settings.name} 👋</div>
-    <div class="top-bar__avatar">${settings.name.charAt(0)}</div>
+    <div class="top-bar__brand">
+      <div class="top-bar__logo">N</div>
+      <span class="top-bar__name">Nomix</span>
+    </div>
+    <div class="top-bar__actions">
+      <button class="btn-icon" aria-label="Notifications"><i data-lucide="bell"></i></button>
+      <div class="top-bar__avatar">${settings.name.charAt(0)}</div>
+    </div>
   `;
 
-  // Balance Hero Card
-  const hero = document.createElement('div');
-  hero.className = 'hero-card mb-6';
+  // Greeting + Balance
+  const greetingSection = document.createElement('div');
+  greetingSection.className = 'mb-6';
+
+  const greeting = document.createElement('div');
+  greeting.className = 'dashboard-greeting';
+  greeting.textContent = i18n.t('greeting.hello', { name: settings.name });
 
   const balanceLabel = document.createElement('div');
-  balanceLabel.style.cssText = 'font-size:13px;color:var(--color-text-muted);margin-bottom:var(--space-2);';
-  balanceLabel.textContent = 'Balance Total';
+  balanceLabel.className = 'dashboard-balance-label';
+  balanceLabel.textContent = i18n.t('dashboard.balanceTotal');
 
+  const balanceParts = formatCurrencyParts(summary.totalBalance);
   const balanceNum = document.createElement('div');
-  balanceNum.style.cssText = 'font-family:var(--font-display);font-weight:700;font-size:clamp(36px,8vw,52px);margin-bottom:var(--space-2);';
-  balanceNum.textContent = formatCurrency(0);
+  balanceNum.className = 'dashboard-balance';
+  balanceNum.innerHTML = `${balanceParts.symbol}<span class="balance-integer">${balanceParts.integer}</span>.<span class="balance-decimal">${balanceParts.decimal}</span>`;
 
-  const changePercent = summary.changePercent;
-  const changeEl = document.createElement('div');
-  changeEl.className = changePercent <= 0 ? 'pill pill-income' : 'pill pill-expense';
-  changeEl.style.marginBottom = 'var(--space-4)';
-  changeEl.textContent = `${changePercent <= 0 ? '↓' : '↑'} ${Math.abs(changePercent).toFixed(1)}% este mes`;
-
-  const pills = document.createElement('div');
-  pills.style.cssText = 'display:flex;gap:var(--space-3);';
-  pills.innerHTML = `
-    <span class="pill pill-income">💰 Ingresos ${formatCurrency(summary.monthIncome)}</span>
-    <span class="pill pill-expense">💸 Gastos ${formatCurrency(summary.monthExpense)}</span>
-  `;
-
-  hero.appendChild(balanceLabel);
-  hero.appendChild(balanceNum);
-  hero.appendChild(changeEl);
-  hero.appendChild(pills);
-  container.appendChild(hero);
+  greetingSection.appendChild(greeting);
+  greetingSection.appendChild(balanceLabel);
+  greetingSection.appendChild(balanceNum);
+  container.appendChild(greetingSection);
 
   // Animate balance
   setTimeout(() => animateCountUp(balanceNum, summary.totalBalance), 100);
 
-  // Accounts Carousel
+  // Account Cards Carousel
   const accSection = document.createElement('div');
   accSection.className = 'mb-6';
-  accSection.innerHTML = `<div class="section-header"><h2 class="section-title">Cuentas</h2></div>`;
 
   const carousel = document.createElement('div');
   carousel.className = 'scroll-x';
   accounts.forEach(acc => carousel.appendChild(createAccountCard(acc)));
-  carousel.appendChild(createAddAccountCard());
   accSection.appendChild(carousel);
   container.appendChild(accSection);
 
-  // Spending Donut
+  // Monthly Expenses Donut
   if (spending.length > 0) {
     const donutSection = document.createElement('div');
     donutSection.className = 'card mb-6';
 
     const donutHeader = document.createElement('div');
     donutHeader.className = 'section-header';
-    donutHeader.innerHTML = '<h2 class="section-title">Gastos del mes</h2>';
+    donutHeader.innerHTML = `<h2 class="section-title">${i18n.t('dashboard.monthExpenses')}</h2>`;
     donutSection.appendChild(donutHeader);
 
+    const chartRow = document.createElement('div');
+    chartRow.className = 'donut-row';
+
     const chartWrap = document.createElement('div');
-    chartWrap.className = 'chart-container';
-    chartWrap.style.height = '220px';
+    chartWrap.className = 'chart-container donut-chart-wrap';
     chartWrap.style.position = 'relative';
 
     const canvas = document.createElement('canvas');
@@ -103,34 +100,34 @@ export default function renderDashboard(container) {
     const centerLabel = document.createElement('div');
     centerLabel.className = 'chart-center-label';
     centerLabel.innerHTML = `
+      <div class="chart-center-label__text">${i18n.t('dashboard.total')}</div>
       <div class="chart-center-label__amount">${formatCurrency(summary.monthExpense)}</div>
-      <div class="chart-center-label__text">Total</div>
     `;
     chartWrap.appendChild(centerLabel);
+    chartRow.appendChild(chartWrap);
 
-    donutSection.appendChild(chartWrap);
-
-    // Legend
+    // Legend (right side)
     const legend = document.createElement('div');
-    legend.className = 'chart-legend';
+    legend.className = 'chart-legend chart-legend--side';
     const totalSpending = spending.reduce((s, c) => s + c.total, 0);
-    spending.forEach(cat => {
+    spending.slice(0, 4).forEach(cat => {
       const pct = totalSpending > 0 ? ((cat.total / totalSpending) * 100).toFixed(0) : 0;
+      const catName = i18n.t(`category.${cat.id}`) !== `category.${cat.id}` ? i18n.t(`category.${cat.id}`) : cat.name;
       legend.innerHTML += `
         <div class="chart-legend-item">
           <span class="chart-legend-dot" style="background:${cat.color}"></span>
-          <span>${cat.icon} ${cat.name}</span>
-          <span style="color:var(--color-text-muted);font-family:var(--font-mono);font-size:12px">${formatCurrency(cat.total)} (${pct}%)</span>
+          <span class="chart-legend-label">${catName}</span>
+          <span class="chart-legend-pct">${pct}%</span>
         </div>
       `;
     });
-    donutSection.appendChild(legend);
+    chartRow.appendChild(legend);
+    donutSection.appendChild(chartRow);
     container.appendChild(donutSection);
 
-    // Render chart after DOM
     requestAnimationFrame(() => {
       createDonutChart(canvas, {
-        labels: spending.map(c => c.name),
+        labels: spending.map(c => i18n.t(`category.${c.id}`) !== `category.${c.id}` ? i18n.t(`category.${c.id}`) : c.name),
         values: spending.map(c => c.total),
         colors: spending.map(c => c.color),
       });
@@ -142,8 +139,8 @@ export default function renderDashboard(container) {
   txSection.className = 'mb-6';
   txSection.innerHTML = `
     <div class="section-header">
-      <h2 class="section-title">Movimientos recientes</h2>
-      <a class="section-link" href="#/transactions">Ver todas →</a>
+      <h2 class="section-title">${i18n.t('dashboard.recentTx')}</h2>
+      <a class="section-link" href="#/transactions">${i18n.t('dashboard.viewAll')}</a>
     </div>
   `;
 
@@ -152,6 +149,5 @@ export default function renderDashboard(container) {
   txSection.appendChild(txList);
   container.appendChild(txSection);
 
-  // Lucide icons
-  if (window.lucide) window.lucide.createIcons({ nodes: [container] });
+  if (window.lucide) window.lucide.createIcons({ nodes: [container, topBar] });
 }

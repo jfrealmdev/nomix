@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomix-v3';
+const CACHE_NAME = 'nomix-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const STATIC_ASSETS = [
   './js/app.js',
   './js/router.js',
   './js/store.js',
+  './js/i18n.js',
   './js/mock-data.js',
   './js/utils.js',
   './js/pwa.js',

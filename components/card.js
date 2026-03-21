@@ -1,20 +1,27 @@
-import { formatCurrency, formatDate, getCategoryById, getAccountById } from '../js/utils.js';
+import { formatCurrency, formatDate, formatTime, getCategoryById, getAccountById } from '../js/utils.js';
+import i18n from '../js/i18n.js';
 
 export function createAccountCard(account) {
   const card = document.createElement('div');
   card.className = 'account-card';
   card.style.background = `linear-gradient(135deg, ${account.color}, ${account.color}88)`;
 
-  const typeLabels = { checking: 'Cuenta Corriente', credit: 'Tarjeta de Crédito', savings: 'Cuenta de Ahorro' };
+  const typeKey = `accountType.${account.type}`;
+  const subtitle = account.type === 'credit' && account.limit
+    ? `${i18n.t('accountType.limit')}: ${formatCurrency(account.limit)}`
+    : account.number;
 
   card.innerHTML = `
-    <div>
-      <div class="account-card__bank">${account.name}</div>
-      <div class="account-card__type">${typeLabels[account.type] || account.type}</div>
+    <div class="account-card__top">
+      <div>
+        <div class="account-card__bank">${account.name}</div>
+        <div class="account-card__number">${account.number}</div>
+      </div>
+      <div class="account-card__icon"><i data-lucide="credit-card"></i></div>
     </div>
-    <div>
-      <div class="account-card__number">${account.number}</div>
+    <div class="account-card__bottom">
       <div class="account-card__balance">${formatCurrency(account.balance)}</div>
+      <div class="account-card__subtitle">${subtitle}</div>
     </div>
   `;
 
@@ -24,7 +31,7 @@ export function createAccountCard(account) {
 export function createAddAccountCard() {
   const card = document.createElement('button');
   card.className = 'account-card-add';
-  card.innerHTML = `<i data-lucide="plus"></i> <span>Agregar cuenta</span>`;
+  card.innerHTML = `<i data-lucide="plus"></i> <span>${i18n.t('settings.addAccount')}</span>`;
   return card;
 }
 
@@ -49,10 +56,11 @@ export function createTransactionRow(tx, showAccount = false) {
 
   const meta = document.createElement('div');
   meta.className = 'tx-category';
-  let metaText = category.name + ' · ' + formatDate(tx.date);
+  const catName = i18n.t(`category.${category.id}`) !== `category.${category.id}` ? i18n.t(`category.${category.id}`) : category.name;
+  let metaText = formatTime(tx.date) + ' • ' + catName;
   if (showAccount) {
     const acc = getAccountById(tx.accountId);
-    metaText += ' · ' + acc.name;
+    metaText += ' • ' + acc.name;
   }
   meta.textContent = metaText;
 
@@ -61,7 +69,7 @@ export function createTransactionRow(tx, showAccount = false) {
 
   const amount = document.createElement('div');
   amount.className = `tx-amount ${isIncome ? 'income' : 'expense'}`;
-  amount.textContent = (isIncome ? '+' : '-') + formatCurrency(tx.amount);
+  amount.textContent = (isIncome ? '+' : '-') + ' ' + formatCurrency(tx.amount);
 
   row.appendChild(icon);
   row.appendChild(info);
