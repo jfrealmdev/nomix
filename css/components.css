@@ -720,6 +720,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
+  overflow: hidden;
 }
 
 .donut-chart-wrap {
@@ -730,6 +731,8 @@
 
 .chart-legend--side {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -738,6 +741,10 @@
 .chart-legend-label {
   font-size: 14px;
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chart-legend-pct {
