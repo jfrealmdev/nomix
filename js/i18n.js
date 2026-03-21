@@ -225,6 +225,7 @@ const translations = {
     // Currency
     'currency.DOP': 'Peso Dominicano (RD$)',
     'currency.USD': 'Dólar Estadounidense (US$)',
+    'currency.staleWarning': 'Tasa de cambio desactualizada. Se muestra con la última tasa disponible.',
 
     // AI Insights
     'ai.insight1': 'Tus gastos en {category} han disminuido un {percent}% respecto al promedio de los últimos 3 meses. Si mantienes este ritmo, podrías aumentar tu fondo de emergencia en {amount} adicionales para final de año.',
@@ -461,6 +462,7 @@ const translations = {
     // Currency
     'currency.DOP': 'Dominican Peso (RD$)',
     'currency.USD': 'US Dollar (US$)',
+    'currency.staleWarning': 'Exchange rate outdated. Displaying with the last available rate.',
 
     // AI Insights
     'ai.insight1': 'Your spending on {category} has decreased by {percent}% compared to the 3-month average. If you keep this pace, you could add {amount} to your emergency fund by year-end.',
