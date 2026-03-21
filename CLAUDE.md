@@ -10,7 +10,8 @@ Nomix is a mobile-first Progressive Web App (PWA) for personal finance managemen
 nomix/
 ├── index.html              # Main entry point
 ├── manifest.json           # PWA manifest
-├── sw.js                   # Service worker (cache-first strategy)
+├── sw.js                   # Service worker (network-first strategy)
+├── version.json            # App version manifest (version, date, release notes)
 ├── css/
 │   ├── tokens.css          # Design tokens (colors, spacing, typography)
 │   ├── base.css            # Resets and base styles
@@ -89,6 +90,27 @@ npx http-server
 
 ## Deployment / Cache Versioning
 
-- **IMPORTANT**: When making any code change, you MUST increment the `CACHE_NAME` version in `sw.js` (e.g., `'nomix-v6'` → `'nomix-v7'`). This is how the browser detects that a new service worker version is available. Without this change, updates will not be picked up by clients.
-- The service worker uses network-first for same-origin assets (fresh when online, cached when offline). Bumping `CACHE_NAME` ensures the precache is refreshed and old caches are purged on activation.
-- Updates are applied automatically: on the next in-app navigation (hash change), on tab focus return, or periodically every 60 seconds. No user action is required.
+When making any code change, you MUST update **both** of the following:
+
+1. **`CACHE_NAME` in `sw.js`**: Increment the version (e.g., `'nomix-v8'` → `'nomix-v9'`). This triggers the browser to install a new service worker and refresh the precache.
+
+2. **`version.json`**: Update the `version`, `date`, and `notes` fields. This is what the user sees in the update banner. Example:
+   ```json
+   {
+     "version": "1.2.0",
+     "date": "2026-03-22",
+     "notes": [
+       "Descripción breve del cambio 1",
+       "Descripción breve del cambio 2"
+     ]
+   }
+   ```
+
+### How Updates Work
+
+- The app polls `version.json` every 30 seconds (cache-busted) and also checks on tab focus
+- The SW uses a BroadcastChannel (`nomix-updates`) to notify clients instantly when activated
+- When a new version is detected, a **persistent banner** appears at the top of the app showing the version and release notes
+- The user must click "Actualizar ahora" to apply — updates are never forced silently
+- If the user dismisses the banner, it reappears on the next in-app navigation
+- `version.json` is always fetched from the network (never served from SW cache) to ensure freshness
