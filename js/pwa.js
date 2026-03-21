@@ -5,7 +5,7 @@ let deferredPrompt = null;
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
 
-  navigator.serviceWorker.register('/sw.js')
+  navigator.serviceWorker.register('./sw.js')
     .then(reg => {
       console.log('SW registered:', reg.scope);
 

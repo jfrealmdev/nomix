@@ -1,7 +1,7 @@
 {
   "name": "Nomix — Finance",
   "short_name": "Nomix",
-  "start_url": "/",
+  "start_url": ".",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0A0F1E",

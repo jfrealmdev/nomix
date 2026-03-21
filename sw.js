@@ -1,29 +1,29 @@
-const CACHE_NAME = 'nomix-v2';
+const CACHE_NAME = 'nomix-v3';
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/css/tokens.css',
-  '/css/base.css',
-  '/css/components.css',
-  '/css/layout.css',
-  '/css/animations.css',
-  '/js/app.js',
-  '/js/router.js',
-  '/js/store.js',
-  '/js/mock-data.js',
-  '/js/utils.js',
-  '/js/pwa.js',
-  '/js/views/dashboard.js',
-  '/js/views/transactions.js',
-  '/js/views/scan.js',
-  '/js/views/analytics.js',
-  '/js/views/settings.js',
-  '/components/nav.js',
-  '/components/card.js',
-  '/components/modal.js',
-  '/components/toast.js',
-  '/components/chart-widget.js'
+  './',
+  './index.html',
+  './manifest.json',
+  './css/tokens.css',
+  './css/base.css',
+  './css/components.css',
+  './css/layout.css',
+  './css/animations.css',
+  './js/app.js',
+  './js/router.js',
+  './js/store.js',
+  './js/mock-data.js',
+  './js/utils.js',
+  './js/pwa.js',
+  './js/views/dashboard.js',
+  './js/views/transactions.js',
+  './js/views/scan.js',
+  './js/views/analytics.js',
+  './js/views/settings.js',
+  './components/nav.js',
+  './components/card.js',
+  './components/modal.js',
+  './components/toast.js',
+  './components/chart-widget.js'
 ];
 
 self.addEventListener('install', (event) => {
@@ -66,7 +66,7 @@ self.addEventListener('fetch', (event) => {
             if (cached) return cached;
             // Offline fallback for navigation
             if (request.destination === 'document') {
-              return caches.match('/index.html');
+              return caches.match('./index.html');
             }
           });
         })
