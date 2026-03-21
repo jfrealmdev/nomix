@@ -1,9 +1,10 @@
 import store from './store.js';
 import i18n from './i18n.js';
 
-export function formatCurrency(amount, currency = null) {
+export function formatCurrency(amount, currency = null, fromCurrency = 'DOP') {
   const cur = currency || store.getSettings().currency || 'DOP';
-  const abs = Math.abs(amount);
+  const converted = convertCurrency(amount, fromCurrency, cur);
+  const abs = Math.abs(converted);
   const locale = i18n.getLocale();
 
   const formatted = abs.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -22,9 +23,10 @@ export function convertCurrency(amount, from, to) {
   return amount;
 }
 
-export function formatCurrencyParts(amount, currency = null) {
+export function formatCurrencyParts(amount, currency = null, fromCurrency = 'DOP') {
   const cur = currency || store.getSettings().currency || 'DOP';
-  const abs = Math.abs(amount);
+  const converted = convertCurrency(amount, fromCurrency, cur);
+  const abs = Math.abs(converted);
   const locale = i18n.getLocale();
 
   const formatted = abs.toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
