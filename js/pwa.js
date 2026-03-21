@@ -1,6 +1,21 @@
 import toast from '../components/toast.js';
 
 let deferredPrompt = null;
+let refreshing = false;
+
+function showUpdateToast(worker) {
+  toast.show({
+    message: 'Nueva versión disponible',
+    type: 'info',
+    duration: 0,
+    action: {
+      label: 'Actualizar',
+      handler: () => {
+        worker.postMessage({ type: 'SKIP_WAITING' });
+      }
+    }
+  });
+}
 
 export function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
@@ -12,6 +27,11 @@ export function registerServiceWorker() {
       // Check for updates on every page load
       reg.update();
 
+      // If a worker is already waiting from a previous visit, show prompt
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        showUpdateToast(reg.waiting);
+      }
+
       // Detect new service worker installing
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
@@ -20,15 +40,7 @@ export function registerServiceWorker() {
         newWorker.addEventListener('statechange', () => {
           // New SW installed and waiting — notify user
           if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            toast.show({
-              message: 'Nueva versión disponible',
-              type: 'info',
-              duration: 8000,
-              action: {
-                label: 'Actualizar',
-                handler: () => window.location.reload()
-              }
-            });
+            showUpdateToast(newWorker);
           }
         });
       });
@@ -39,10 +51,9 @@ export function registerServiceWorker() {
 
   // Reload when new SW takes control
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    // Only auto-reload if there was a previous controller (update scenario)
-    if (navigator.serviceWorker.controller) {
-      window.location.reload();
-    }
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
   });
 }
 

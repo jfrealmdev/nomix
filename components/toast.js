@@ -27,12 +27,14 @@ const toast = {
 
     toastRoot().appendChild(el);
 
-    const autoDismiss = action ? Math.max(duration, 6000) : duration;
-    setTimeout(() => {
-      el.classList.add('toast-exit');
-      el.addEventListener('animationend', () => el.remove(), { once: true });
-      setTimeout(() => el.remove(), 300);
-    }, autoDismiss);
+    const autoDismiss = duration === 0 ? 0 : (action ? Math.max(duration, 6000) : duration);
+    if (autoDismiss > 0) {
+      setTimeout(() => {
+        el.classList.add('toast-exit');
+        el.addEventListener('animationend', () => el.remove(), { once: true });
+        setTimeout(() => el.remove(), 300);
+      }, autoDismiss);
+    }
   }
 };
 
