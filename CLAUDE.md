@@ -86,3 +86,9 @@ npx http-server
 - **Routing**: hash-based (`#/dashboard`, `#/transactions`, etc.)
 - **Components**: pure DOM creation, no virtual DOM
 - **PWA**: installable, offline-capable, caches all static assets
+
+## Deployment / Cache Versioning
+
+- **IMPORTANT**: When making any code change, you MUST increment the `CACHE_NAME` version in `sw.js` (e.g., `'nomix-v6'` → `'nomix-v7'`). This is how the browser detects that a new service worker version is available. Without this change, updates will not be picked up by clients.
+- The service worker uses network-first for same-origin assets (fresh when online, cached when offline). Bumping `CACHE_NAME` ensures the precache is refreshed and old caches are purged on activation.
+- Updates are applied automatically: on the next in-app navigation (hash change), on tab focus return, or periodically every 60 seconds. No user action is required.
