@@ -3,6 +3,7 @@ import router from './router.js';
 import i18n from './i18n.js';
 import { initNav } from '../components/nav.js';
 import { registerServiceWorker, setupInstallPrompt } from './pwa.js';
+import { injectCurrencyToggle } from '../components/currency-toggle.js';
 
 // Views
 import renderDashboard from './views/dashboard.js';
@@ -36,9 +37,10 @@ function init() {
   registerServiceWorker();
   setupInstallPrompt();
 
-  // Re-render Lucide icons after route changes
+  // Re-render Lucide icons and currency toggle after route changes
   window.addEventListener('route:changed', () => {
     requestAnimationFrame(() => {
+      injectCurrencyToggle();
       if (window.lucide) window.lucide.createIcons();
     });
   });

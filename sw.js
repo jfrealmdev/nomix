@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomix-v6';
+const CACHE_NAME = 'nomix-v7';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -24,7 +24,9 @@ const STATIC_ASSETS = [
   './components/card.js',
   './components/modal.js',
   './components/toast.js',
-  './components/chart-widget.js'
+  './components/chart-widget.js',
+  './components/currency-toggle.js',
+  './js/exchange-rate.js'
 ];
 
 self.addEventListener('install', (event) => {
