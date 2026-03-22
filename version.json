@@ -1,8 +1,8 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "date": "2026-03-22",
   "notes": [
-    "Icono de notificaciones visible en ajustes",
-    "Selector de moneda visible al refrescar la página"
+    "Controles de cámara ahora se muestran sobre la vista de cámara",
+    "La cámara ocupa toda la pantalla disponible"
   ]
 }

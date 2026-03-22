@@ -483,7 +483,7 @@
 .scanner-container {
   position: relative;
   width: 100%;
-  aspect-ratio: 3/4;
+  height: calc(100dvh - 140px);
   background: #000;
   border-radius: var(--radius-md);
   overflow: hidden;
@@ -518,10 +518,16 @@
 .scanner-corner--br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
 
 .scanner-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: space-around;
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  z-index: 2;
 }
 
 .capture-btn {
