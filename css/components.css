@@ -1179,9 +1179,10 @@
 /* Scanner hint */
 .scanner-hint {
   position: absolute;
-  bottom: 20%;
+  bottom: 120px;
   left: 50%;
   transform: translateX(-50%);
+  z-index: 3;
   color: rgba(255,255,255,0.7);
   font-size: 14px;
   text-align: center;

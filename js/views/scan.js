@@ -98,7 +98,7 @@ export default function renderScan(container) {
     controls.appendChild(galleryBtn);
     controls.appendChild(captureBtn);
     controls.appendChild(flashBtn);
-    section.appendChild(controls);
+    scanner.appendChild(controls);
 
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
