@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nomix-v8';
+const CACHE_NAME = 'nomix-v9';
 const STATIC_ASSETS = [
   './',
   './index.html',

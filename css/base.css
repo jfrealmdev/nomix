@@ -35,13 +35,9 @@ input, select, textarea { font: inherit; color: inherit; }
   outline-offset: 2px;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb {
-  background: var(--color-text-dim);
-  border-radius: var(--radius-full);
-}
+/* Scrollbar — hidden for native mobile feel */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
 
 /* Selection */
 ::selection {
