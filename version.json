@@ -1,9 +1,9 @@
 {
-  "version": "1.1.0",
-  "date": "2026-03-21",
+  "version": "1.2.0",
+  "date": "2026-03-22",
   "notes": [
-    "Sistema de actualización mejorado con detección automática",
-    "Notificaciones claras de nuevas versiones con notas de cambio",
-    "Banner persistente para actualizaciones disponibles"
+    "Header fijo al hacer scroll",
+    "Scrollbars ocultos para experiencia móvil nativa",
+    "Corrección de visibilidad del selector de moneda"
   ]
 }
