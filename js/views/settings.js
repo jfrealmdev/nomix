@@ -14,6 +14,7 @@ export default function renderSettings(container) {
       <span class="top-bar__name">Nomix</span>
     </div>
     <div class="top-bar__actions">
+      <button class="btn-icon" aria-label="Notifications"><i data-lucide="bell"></i></button>
       <div class="top-bar__avatar">${store.getSettings().name.charAt(0)}</div>
     </div>
   `;

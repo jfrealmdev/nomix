@@ -30,9 +30,6 @@ function init() {
   // Init navigation
   initNav();
 
-  // Start router
-  router.init();
-
   // PWA
   registerServiceWorker();
   setupInstallPrompt();
@@ -44,6 +41,9 @@ function init() {
       if (window.lucide) window.lucide.createIcons();
     });
   });
+
+  // Start router (after event listeners are registered so initial route triggers toggle injection)
+  router.init();
 
   // Re-render current view on language change
   window.addEventListener('lang:changed', () => {
